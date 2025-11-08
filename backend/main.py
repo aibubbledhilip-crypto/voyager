@@ -1,0 +1,322 @@
+"""
+FastAPI application for Intelligent RAG Data Analysis Tool
+"""
+import logging
+import shutil
+from pathlib import Path
+from typing import List, Optional
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+from backend.config import settings
+from backend.rag_engine import RAGEngine
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Global RAG engine instance
+rag_engine: Optional[RAGEngine] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    global rag_engine
+    logger.info("Initializing RAG Engine...")
+    try:
+        rag_engine = RAGEngine()
+        logger.info("RAG Engine initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize RAG Engine: {str(e)}")
+        raise
+    yield
+    logger.info("Shutting down...")
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="Intelligent RAG Data Analysis Tool",
+    description="AI-powered data analysis tool for Excel and CSV files using RAG",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# Pydantic models
+class QueryRequest(BaseModel):
+    question: str
+    return_sources: bool = True
+
+
+class QueryResponse(BaseModel):
+    success: bool
+    question: str
+    answer: str
+    sources: Optional[List[dict]] = None
+    error: Optional[str] = None
+
+
+class FileUploadResponse(BaseModel):
+    success: bool
+    file_name: str
+    chunks_created: Optional[int] = None
+    insights: Optional[dict] = None
+    error: Optional[str] = None
+
+
+class DataOverviewResponse(BaseModel):
+    total_files: int
+    total_chunks: int
+    files: List[dict]
+
+
+# API Endpoints
+
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    return {
+        "message": "Intelligent RAG Data Analysis Tool",
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "rag_engine_initialized": rag_engine is not None
+    }
+
+
+@app.post("/upload", response_model=FileUploadResponse)
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Upload a single Excel or CSV file for analysis
+    """
+    try:
+        if not rag_engine:
+            raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        # Validate file extension
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext not in {'.csv', '.xlsx', '.xls'}:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type: {file_ext}. Supported types: .csv, .xlsx, .xls"
+            )
+
+        # Save uploaded file
+        upload_path = Path(settings.upload_dir) / file.filename
+        with upload_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        logger.info(f"Saved uploaded file: {file.filename}")
+
+        # Process the file
+        result = rag_engine.add_file(str(upload_path))
+
+        if result["success"]:
+            return FileUploadResponse(**result)
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/upload-multiple", response_model=List[FileUploadResponse])
+async def upload_multiple_files(files: List[UploadFile] = File(...)):
+    """
+    Upload multiple Excel or CSV files for analysis
+    Supports batch upload of 50+ files
+    """
+    try:
+        if not rag_engine:
+            raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        results = []
+        saved_files = []
+
+        # Save all uploaded files
+        for file in files:
+            file_ext = Path(file.filename).suffix.lower()
+            if file_ext not in {'.csv', '.xlsx', '.xls'}:
+                results.append(FileUploadResponse(
+                    success=False,
+                    file_name=file.filename,
+                    error=f"Unsupported file type: {file_ext}"
+                ))
+                continue
+
+            upload_path = Path(settings.upload_dir) / file.filename
+            with upload_path.open("wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            saved_files.append(str(upload_path))
+            logger.info(f"Saved uploaded file: {file.filename}")
+
+        # Process all saved files
+        processing_results = rag_engine.add_multiple_files(saved_files)
+
+        for result in processing_results:
+            results.append(FileUploadResponse(**result))
+
+        logger.info(f"Processed {len(files)} files")
+        return results
+
+    except Exception as e:
+        logger.error(f"Error uploading multiple files: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/query", response_model=QueryResponse)
+async def query_data(request: QueryRequest):
+    """
+    Query the data using natural language
+    Returns AI-generated insights based on all uploaded data
+    """
+    try:
+        if not rag_engine:
+            raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        if not request.question or len(request.question.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+
+        result = rag_engine.query(request.question, request.return_sources)
+
+        if result["success"]:
+            return QueryResponse(**result)
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing query: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/overview", response_model=DataOverviewResponse)
+async def get_data_overview():
+    """
+    Get an overview of all uploaded datasets
+    """
+    try:
+        if not rag_engine:
+            raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        overview = rag_engine.get_data_overview()
+
+        if "error" in overview:
+            raise HTTPException(status_code=500, detail=overview["error"])
+
+        return DataOverviewResponse(**overview)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting data overview: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/insights")
+async def get_automatic_insights(
+    focus: Optional[str] = Query(None, description="Specific aspect to focus on (e.g., 'sales trends', 'customer behavior')")
+):
+    """
+    Get automatic insights from all uploaded data
+    """
+    try:
+        if not rag_engine:
+            raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        # Generate insight questions based on focus
+        if focus:
+            question = f"Provide detailed insights about {focus} based on all the datasets."
+        else:
+            question = (
+                "Provide a comprehensive analysis of all the datasets including: "
+                "1. Key trends and patterns, "
+                "2. Important statistics and metrics, "
+                "3. Relationships between different data points, "
+                "4. Any anomalies or notable observations, "
+                "5. Actionable recommendations based on the data."
+            )
+
+        result = rag_engine.query(question, return_sources=True)
+
+        if result["success"]:
+            return {
+                "success": True,
+                "focus": focus or "general",
+                "insights": result["answer"],
+                "based_on_files": [
+                    source["metadata"].get("file_name")
+                    for source in result.get("sources", [])
+                    if "metadata" in source and "file_name" in source["metadata"]
+                ]
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/clear")
+async def clear_data():
+    """
+    Clear all uploaded data and reset the vectorstore
+    """
+    try:
+        if not rag_engine:
+            raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        result = rag_engine.clear_vectorstore()
+
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error clearing data: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "backend.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=True
+    )
