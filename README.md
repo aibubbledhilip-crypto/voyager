@@ -28,6 +28,22 @@ An AI-powered data analysis tool that uses Retrieval Augmented Generation (RAG) 
 - **📊 Usage Statistics**: Track files, queries, and storage per user
 - **🎯 Role-Based Access**: Admin and user roles
 
+### Intelligent Analytics (NEW! 🚀)
+- **🧠 Smart Query Routing**: Automatically detects query intent and routes to appropriate backend
+  - RAG for semantic questions ("What trends do you see?")
+  - Analytics for exact data queries ("Find duplicates")
+  - Metadata for system queries ("How many files?")
+- **🔍 Cross-File Analytics**: Direct data analysis across all uploaded files
+  - Find duplicates with occurrence counts and file tracking
+  - Get unique values with frequency analysis
+  - Perform aggregations (count, sum, mean, min, max)
+  - Group by any column for segmented analysis
+- **📥 Complete CSV Export**: Download full analytics reports
+  - Automatic CSV generation for every analytics query
+  - Complete data (not limited to preview)
+  - Excel-compatible format for further analysis
+  - Timestamped exports for audit trails
+
 👉 **See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) for complete guide**
 
 ## Architecture
@@ -43,29 +59,46 @@ An AI-powered data analysis tool that uses Retrieval Augmented Generation (RAG) 
 │ Data Processor  │  ← Pandas-based chunking & summarization
 └────────┬────────┘
          │
-         v
-┌─────────────────┐
-│   Embeddings    │  ← OpenAI or Local (Sentence Transformers)
-└────────┬────────┘
-         │
-         v
-┌─────────────────┐
-│    ChromaDB     │  ← Vector storage & retrieval
-│  Vector Store   │
-└────────┬────────┘
-         │
-         v
-┌─────────────────┐
-│   RAG Engine    │  ← LangChain QA Chain
-└────────┬────────┘
-         │
-         v
-┌─────────────────┐
-│  LLM (GPT/Claude)│ ← Answer generation
-└────────┬────────┘
-         │
-         v
-   User Response
+         ├──────────────────┐
+         │                  │
+         v                  v
+┌─────────────────┐  ┌──────────────┐
+│   Embeddings    │  │   Database   │  ← SQLAlchemy (File tracking)
+│ (RAG Storage)   │  │   (SQLite)   │
+└────────┬────────┘  └──────┬───────┘
+         │                  │
+         v                  │
+┌─────────────────┐         │
+│    ChromaDB     │         │
+│  Vector Store   │         │
+└────────┬────────┘         │
+         │                  │
+         v                  v
+     User Query ──────> Query Router  ← Smart Intent Detection
+                            │
+         ┌──────────────────┼──────────────────┐
+         │                  │                  │
+         v                  v                  v
+   ┌──────────┐      ┌──────────┐      ┌──────────┐
+   │   RAG    │      │Analytics │      │ Metadata │
+   │ (Semantic)│      │ (Exact)  │      │(Overview)│
+   └────┬─────┘      └────┬─────┘      └────┬─────┘
+        │                 │                   │
+        v                 v                   │
+   ┌──────────┐      ┌──────────┐           │
+   │   LLM    │      │  Pandas  │           │
+   │(GPT/     │      │Direct SQL│           │
+   │ Claude)  │      └────┬─────┘           │
+   └────┬─────┘           │                  │
+        │                 v                  │
+        │          ┌──────────┐              │
+        │          │CSV Export│              │
+        │          └────┬─────┘              │
+        │               │                    │
+        └───────────────┴────────────────────┘
+                        │
+                        v
+                 User Response
 ```
 
 ## Installation
@@ -148,14 +181,16 @@ Interactive API documentation: `http://localhost:8000/docs`
 
 ### API Endpoints
 
-#### 1. Upload Single File
+#### Core Endpoints
+
+##### 1. Upload Single File
 
 ```bash
 curl -X POST "http://localhost:8000/upload" \
   -F "file=@your_data.csv"
 ```
 
-#### 2. Upload Multiple Files
+##### 2. Upload Multiple Files
 
 ```bash
 curl -X POST "http://localhost:8000/upload-multiple" \
@@ -164,34 +199,84 @@ curl -X POST "http://localhost:8000/upload-multiple" \
   -F "files=@file3.csv"
 ```
 
-#### 3. Query Data
+##### 3. Intelligent Query (Automatic Routing)
+
+The `/query` endpoint now automatically detects query intent and routes to the appropriate backend:
 
 ```bash
+# Semantic question → RAG
 curl -X POST "http://localhost:8000/query" \
   -H "Content-Type: application/json" \
-  -d '{
-    "question": "What are the top 5 trends in the sales data?",
-    "return_sources": true
-  }'
+  -d '{"question": "What trends do you see in the sales data?"}'
+
+# Duplicate detection → Analytics
+curl -X POST "http://localhost:8000/query" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Find duplicate msisdns across all files"}'
+
+# File count → Metadata
+curl -X POST "http://localhost:8000/query" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How many files do we have?"}'
 ```
 
-#### 4. Get Data Overview
+##### 4. Get Data Overview
 
 ```bash
 curl -X GET "http://localhost:8000/overview"
 ```
 
-#### 5. Get Automatic Insights
+##### 5. Get Automatic Insights
 
 ```bash
 curl -X POST "http://localhost:8000/insights?focus=sales%20trends"
 ```
 
-#### 6. Clear All Data
+##### 6. Clear All Data
 
 ```bash
 curl -X DELETE "http://localhost:8000/clear"
 ```
+
+#### Analytics Endpoints (Direct Access)
+
+##### 7. Find Duplicates
+
+```bash
+curl -X GET "http://localhost:8000/analytics/duplicates?column=msisdn"
+```
+
+Response includes:
+- List of all duplicate values
+- Occurrence counts per file
+- Total files analyzed
+- **CSV download link** for complete report
+
+##### 8. Get Unique Values
+
+```bash
+curl -X GET "http://localhost:8000/analytics/column-values?column=segment&limit=100"
+```
+
+Response includes:
+- Unique values with frequency counts
+- **CSV download link** for complete list
+
+##### 9. Aggregate Data
+
+```bash
+curl -X GET "http://localhost:8000/analytics/aggregate?column=revenue&operation=sum&group_by=region"
+```
+
+Operations: `count`, `sum`, `mean`, `min`, `max`
+
+##### 10. Download CSV Export
+
+```bash
+curl -O "http://localhost:8000/download/duplicates_msisdn_20251110_043022_a1b2c3d4.csv"
+```
+
+CSV files are automatically generated for analytics queries and stored in `data/exports/`
 
 ### Example Python Client
 
@@ -206,16 +291,35 @@ with open('sales_data.csv', 'rb') as f:
     )
     print(response.json())
 
-# Query the data
+# Intelligent query (automatic routing)
 response = requests.post(
     'http://localhost:8000/query',
     json={
-        'question': 'What is the average sales by region?',
+        'question': 'Find duplicate customer IDs across all files',
         'return_sources': True
     }
 )
 result = response.json()
 print(f"Answer: {result['answer']}")
+
+# If CSV export is available, download it
+if 'sources' in result and result['sources']:
+    metadata = result['sources'][0].get('metadata', {})
+    if 'csv_download_url' in metadata:
+        csv_url = f"http://localhost:8000{metadata['csv_download_url']}"
+        csv_response = requests.get(csv_url)
+        with open('duplicates_report.csv', 'wb') as f:
+            f.write(csv_response.content)
+        print("CSV report downloaded!")
+
+# Direct analytics query
+response = requests.get(
+    'http://localhost:8000/analytics/duplicates',
+    params={'column': 'msisdn'}
+)
+analytics = response.json()
+print(f"Found {analytics['total_duplicates']} duplicates")
+print(f"Download CSV: {analytics['csv_download_url']}")
 
 # Get automatic insights
 response = requests.post(
@@ -230,18 +334,30 @@ print(response.json())
 ### Data Processing Pipeline
 
 1. **File Upload**: CSV/Excel files are uploaded via the API
-2. **Data Chunking**: Each file is:
+2. **Dual Storage**: Each file is:
+   - Tracked in SQLite database (metadata, file paths, status)
+   - Processed for RAG (chunking, embeddings, vector storage)
+3. **Data Chunking** (for RAG): Each file is:
    - Read into a pandas DataFrame
    - Analyzed for structure (columns, types, statistics)
    - Split into manageable chunks (default: 50 rows per chunk)
    - Summary metadata is generated
-3. **Embedding Generation**: Each chunk is converted to vector embeddings
-4. **Vector Storage**: Embeddings are stored in ChromaDB with metadata
-5. **Query Processing**: User questions are:
-   - Embedded using the same model
-   - Used to retrieve relevant data chunks (top 10 most similar)
-   - Sent to LLM with context for answer generation
-6. **Response**: AI-generated answer with source references
+4. **Embedding Generation**: Each chunk is converted to vector embeddings
+5. **Vector Storage**: Embeddings are stored in ChromaDB with metadata
+6. **Intelligent Query Processing**: User questions go through:
+   - **Intent Detection**: Query router analyzes the question
+     - Metadata queries: "How many files?" → Database overview
+     - Duplicate detection: "Find duplicates" → Analytics engine
+     - Unique values: "List unique segments" → Analytics engine
+     - Aggregations: "Average revenue by region" → Analytics engine
+     - Semantic questions: "What trends..." → RAG engine
+   - **Routing**: Query is sent to appropriate backend
+   - **Processing**:
+     - RAG: Retrieves top 20 chunks, sends to LLM with context
+     - Analytics: Directly queries database + reads files with Pandas
+     - Metadata: Queries vector store for file information
+   - **CSV Export**: Analytics queries automatically generate CSV reports
+7. **Response**: Formatted answer with optional CSV download link
 
 ### Chunking Strategy
 
@@ -290,29 +406,42 @@ EMBEDDING_MODEL=all-MiniLM-L6-v2
 
 ## Example Use Cases
 
-### 1. Sales Analysis
+### 1. Data Quality & Duplicate Detection
+Upload multiple data files and ask:
+- **"Find duplicate MSISDNs across all files"** → Analytics engine finds all duplicates
+- **"Are there any repeated customer IDs?"** → Gets complete duplicate report
+- **"Show me unique segments"** → Lists all unique values with counts
+- **"How many files have we uploaded?"** → Metadata overview
+- **Download complete CSV** with all 610 duplicates (not just top 20)
+
+### 2. Sales Analysis
 Upload multiple sales CSV files and ask:
-- "What were the top performing products last quarter?"
-- "Show me sales trends by region over time"
-- "Which customers have the highest lifetime value?"
+- "What were the top performing products last quarter?" → RAG analysis
+- "Count sales by region" → Analytics aggregation
+- "Show me sales trends over time" → RAG with time series insights
+- "Which customers have the highest lifetime value?" → RAG analysis
 
-### 2. Financial Data
+### 3. Financial Data
 Upload financial spreadsheets and query:
-- "What are the main expense categories?"
-- "Compare revenue growth year over year"
-- "Identify unusual transactions or outliers"
+- "What are the main expense categories?" → RAG semantic analysis
+- "Sum revenue by department" → Analytics aggregation
+- "Find duplicate transaction IDs" → Analytics duplicate detection
+- "Identify unusual transactions or outliers" → RAG analysis
 
-### 3. Customer Analytics
+### 4. Customer Analytics
 Upload customer data and ask:
-- "What are the common characteristics of our best customers?"
-- "Segment customers by behavior patterns"
-- "Predict which customers are at risk of churning"
+- "Find duplicate email addresses" → Analytics with CSV export
+- "List unique customer segments" → Analytics unique values
+- "What are the common characteristics of our best customers?" → RAG analysis
+- "Average customer lifetime value by segment" → Analytics aggregation
 
-### 4. Inventory Management
-Upload inventory Excel files and query:
-- "Which products are running low on stock?"
-- "What's the average inventory turnover rate?"
-- "Identify slow-moving items"
+### 5. Telecom Data Analysis
+Upload subscriber/usage data and query:
+- "Find duplicate MSISDNs across all files" → Analytics (complete CSV)
+- "List unique IMEIs" → Analytics unique values
+- "Count subscribers by segment" → Analytics aggregation
+- "What trends do you see in usage patterns?" → RAG semantic analysis
+- "Average revenue by region" → Analytics with grouping
 
 ## Performance Considerations
 
@@ -351,27 +480,38 @@ Solution: Only .csv, .xlsx, .xls files are supported
 voyager/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py           # FastAPI application
-│   ├── config.py         # Configuration management
-│   ├── data_processor.py # Data processing & chunking
-│   └── rag_engine.py     # RAG implementation
-├── static/               # HTML/CSS/JS web interface
+│   ├── main.py              # FastAPI application
+│   ├── config.py            # Configuration management
+│   ├── data_processor.py    # Data processing & chunking
+│   ├── rag_engine.py        # RAG implementation
+│   ├── query_router.py      # 🆕 Intelligent query routing
+│   ├── analytics_routes.py  # 🆕 Analytics endpoints
+│   ├── database.py          # Database models & connection
+│   ├── auth.py              # Authentication logic
+│   ├── auth_routes.py       # User management API
+│   ├── viz_routes.py        # Visualization endpoints
+│   └── visualizations.py    # Chart generation
+├── static/                  # HTML/CSS/JS web interface
 │   ├── index.html
 │   ├── styles.css
 │   └── app.js
 ├── data/
-│   ├── uploads/          # Uploaded files
-│   └── vectorstore/      # ChromaDB storage
-├── app.py                # Streamlit GUI application
-├── run_gui.py            # GUI launcher script
-├── run.py                # API launcher script
-├── example_usage.py      # Python usage examples
-├── .env                  # Environment variables
-├── requirements.txt      # Python dependencies
-├── README.md             # This file
-├── GUI_GUIDE.md          # Complete GUI documentation
-├── QUICKSTART.md         # Quick start guide
-└── API_DOCUMENTATION.md  # API reference
+│   ├── uploads/             # Uploaded files
+│   ├── vectorstore/         # ChromaDB storage
+│   ├── exports/             # 🆕 Generated CSV reports
+│   ├── app.db               # SQLite database
+│   └── tenants/             # Multi-tenant file storage
+├── app.py                   # Streamlit GUI application
+├── run_gui.py               # GUI launcher script
+├── run.py                   # API launcher script
+├── example_usage.py         # Python usage examples
+├── .env                     # Environment variables
+├── requirements.txt         # Python dependencies
+├── README.md                # This file
+├── ADVANCED_FEATURES.md     # Advanced features guide
+├── GUI_GUIDE.md             # Complete GUI documentation
+├── QUICKSTART.md            # Quick start guide
+└── API_DOCUMENTATION.md     # API reference
 ```
 
 ### Running Tests
@@ -397,11 +537,18 @@ pytest
 - [x] Web UI for easier interaction (Streamlit + HTML)
 - [x] Advanced visualization of insights
 - [x] User authentication & multi-tenancy
+- [x] Intelligent query routing with intent detection
+- [x] Cross-file analytics (duplicates, unique values, aggregations)
+- [x] CSV export for complete analytics reports
+- [x] File persistence for all users (authenticated & unauthenticated)
 - [ ] Support for more file formats (JSON, Parquet)
 - [ ] Multi-language support
 - [ ] Scheduled automatic insights
 - [ ] Export insights to PDF/Word
 - [ ] Collaborative workspaces
+- [ ] ML-based intent classification (vs regex patterns)
+- [ ] Real-time data streaming support
+- [ ] Advanced aggregations (median, percentile, variance)
 
 ## Contributing
 
