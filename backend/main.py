@@ -7,14 +7,19 @@ from pathlib import Path
 from typing import List, Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from backend.config import settings
 from backend.rag_engine import RAGEngine
+from backend.database import init_db, get_db, User, UploadedFile as DBUploadedFile
+from backend.auth import get_current_user, init_admin_user
+from backend.auth_routes import router as auth_router
+from backend.viz_routes import router as viz_router
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +36,20 @@ rag_engine: Optional[RAGEngine] = None
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     global rag_engine
+
+    # Initialize database
+    logger.info("Initializing database...")
+    init_db()
+
+    # Create admin user
+    from backend.database import SessionLocal
+    db = SessionLocal()
+    try:
+        init_admin_user(db)
+    finally:
+        db.close()
+
+    # Initialize RAG engine
     logger.info("Initializing RAG Engine...")
     try:
         rag_engine = RAGEngine()
@@ -38,6 +57,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize RAG Engine: {str(e)}")
         raise
+
     yield
     logger.info("Shutting down...")
 
@@ -45,8 +65,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Intelligent RAG Data Analysis Tool",
-    description="AI-powered data analysis tool for Excel and CSV files using RAG",
-    version="1.0.0",
+    description="AI-powered data analysis tool for Excel and CSV files using RAG with authentication and advanced visualizations",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -63,6 +83,10 @@ app.add_middleware(
 static_path = Path(__file__).parent.parent / "static"
 if static_path.exists():
     app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
+# Include routers
+app.include_router(auth_router)
+app.include_router(viz_router)
 
 
 # Pydantic models
@@ -129,9 +153,14 @@ async def health_check():
 
 
 @app.post("/upload", response_model=FileUploadResponse)
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Upload a single Excel or CSV file for analysis
+    Works with or without authentication (multi-tenancy aware)
     """
     try:
         if not rag_engine:
@@ -145,15 +174,47 @@ async def upload_file(file: UploadFile = File(...)):
                 detail=f"Unsupported file type: {file_ext}. Supported types: .csv, .xlsx, .xls"
             )
 
+        # Determine storage path (user-specific if authenticated)
+        if current_user:
+            from backend.auth import get_user_tenant
+            tenant = get_user_tenant(db, current_user)
+            tenant_path = Path(tenant.storage_path)
+            tenant_path.mkdir(parents=True, exist_ok=True)
+            upload_path = tenant_path / file.filename
+        else:
+            upload_path = Path(settings.upload_dir) / file.filename
+
         # Save uploaded file
-        upload_path = Path(settings.upload_dir) / file.filename
+        file_size = 0
         with upload_path.open("wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            content = file.file.read()
+            file_size = len(content)
+            buffer.write(content)
 
         logger.info(f"Saved uploaded file: {file.filename}")
 
         # Process the file
         result = rag_engine.add_file(str(upload_path))
+
+        # Track in database if authenticated
+        if current_user and result["success"]:
+            tenant = get_user_tenant(db, current_user)
+            insights = result.get("insights", {})
+            db_file = DBUploadedFile(
+                filename=file.filename,
+                original_filename=file.filename,
+                file_path=str(upload_path),
+                file_size=file_size,
+                file_type=file_ext.replace('.', ''),
+                user_id=current_user.id,
+                tenant_id=tenant.id,
+                rows_count=insights.get('shape', {}).get('rows'),
+                columns_count=insights.get('shape', {}).get('columns'),
+                chunks_created=result.get('chunks_created'),
+                processing_status='completed'
+            )
+            db.add(db_file)
+            db.commit()
 
         if result["success"]:
             return FileUploadResponse(**result)
@@ -168,14 +229,29 @@ async def upload_file(file: UploadFile = File(...)):
 
 
 @app.post("/upload-multiple", response_model=List[FileUploadResponse])
-async def upload_multiple_files(files: List[UploadFile] = File(...)):
+async def upload_multiple_files(
+    files: List[UploadFile] = File(...),
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Upload multiple Excel or CSV files for analysis
     Supports batch upload of 50+ files
+    Works with or without authentication (multi-tenancy aware)
     """
     try:
         if not rag_engine:
             raise HTTPException(status_code=500, detail="RAG engine not initialized")
+
+        # Determine storage path
+        if current_user:
+            from backend.auth import get_user_tenant
+            tenant = get_user_tenant(db, current_user)
+            tenant_path = Path(tenant.storage_path)
+            tenant_path.mkdir(parents=True, exist_ok=True)
+            storage_dir = tenant_path
+        else:
+            storage_dir = Path(settings.upload_dir)
 
         results = []
         saved_files = []

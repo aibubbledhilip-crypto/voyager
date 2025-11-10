@@ -4,6 +4,7 @@ An AI-powered data analysis tool that uses Retrieval Augmented Generation (RAG) 
 
 ## Features
 
+### Core Features
 - **🎨 Beautiful Web GUI**: Two intuitive interfaces (Streamlit + HTML/JS)
 - **📤 Multi-File Support**: Upload and analyze 50+ Excel/CSV files simultaneously
 - **🤖 RAG-Powered Analysis**: Uses LangChain and vector embeddings for intelligent data retrieval
@@ -13,6 +14,21 @@ An AI-powered data analysis tool that uses Retrieval Augmented Generation (RAG) 
 - **📊 Local or Cloud Embeddings**: Choose between OpenAI embeddings or local Sentence Transformers
 - **🚀 RESTful API**: Easy-to-use FastAPI endpoints
 - **💾 Persistent Storage**: ChromaDB vector store persists your data
+
+### Advanced Features (NEW! ✨)
+- **🔐 User Authentication**: Secure JWT token & API key authentication
+- **👥 Multi-Tenancy**: Data isolation per user/organization
+- **📈 Advanced Visualizations**: Interactive dashboards with Plotly
+  - Correlation matrices with insights
+  - Distribution plots and histograms
+  - Time series analysis
+  - Missing data visualizations
+  - Chart export (PNG, PDF, SVG)
+- **🛡️ User Management**: Admin dashboard for user control
+- **📊 Usage Statistics**: Track files, queries, and storage per user
+- **🎯 Role-Based Access**: Admin and user roles
+
+👉 **See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) for complete guide**
 
 ## Architecture
 
@@ -371,6 +387,7 @@ pytest
 ## Documentation
 
 - **[README.md](README.md)** - This file, comprehensive overview
+- **[ADVANCED_FEATURES.md](ADVANCED_FEATURES.md)** - ⭐ Authentication, Multi-Tenancy & Visualizations
 - **[GUI_GUIDE.md](GUI_GUIDE.md)** - Complete guide to using the web interfaces
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
 - **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - Full API reference
@@ -378,12 +395,13 @@ pytest
 ## Roadmap
 
 - [x] Web UI for easier interaction (Streamlit + HTML)
-- [ ] Support for more file formats (JSON, Parquet)
 - [x] Advanced visualization of insights
+- [x] User authentication & multi-tenancy
+- [ ] Support for more file formats (JSON, Parquet)
 - [ ] Multi-language support
 - [ ] Scheduled automatic insights
 - [ ] Export insights to PDF/Word
-- [ ] User authentication & multi-tenancy
+- [ ] Collaborative workspaces
 
 ## Contributing
 
