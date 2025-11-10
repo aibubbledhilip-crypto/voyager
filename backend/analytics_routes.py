@@ -8,12 +8,18 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 import pandas as pd
 import logging
+from datetime import datetime
+import uuid
 
 from backend.database import get_db, User, UploadedFile
 from backend.auth import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 logger = logging.getLogger(__name__)
+
+# Exports directory
+EXPORTS_DIR = Path("./data/exports")
+EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.get("/duplicates")
@@ -103,6 +109,8 @@ async def find_duplicates(
 
         # Format results
         results = []
+        csv_rows = []  # For CSV export
+
         for _, row in duplicate_groups.iterrows():
             value = row[column]
             files = row['_source_file']
@@ -123,12 +131,39 @@ async def find_duplicates(
                 ]
             })
 
+            # Prepare CSV row
+            files_list = ", ".join([f"{fname} ({cnt}x)" for fname, cnt in file_counts.items()])
+            csv_rows.append({
+                column: str(value),
+                'total_occurrences': int(count),
+                'file_count': len(file_counts),
+                'found_in_files': files_list
+            })
+
+        # Generate CSV export
+        csv_filename = None
+        csv_path = None
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"duplicates_{column}_{timestamp}_{uuid.uuid4().hex[:8]}.csv"
+            csv_path = EXPORTS_DIR / csv_filename
+
+            # Create DataFrame and export to CSV
+            export_df = pd.DataFrame(csv_rows)
+            export_df.to_csv(csv_path, index=False)
+            logger.info(f"Generated CSV export: {csv_filename}")
+        except Exception as e:
+            logger.error(f"Error generating CSV export: {str(e)}")
+            # Continue even if CSV generation fails
+
         return {
             "success": True,
             "column": column,
             "total_duplicates": len(results),
             "total_files_analyzed": len(files),
-            "duplicates": results
+            "duplicates": results,
+            "csv_export": csv_filename if csv_filename else None,
+            "csv_download_url": f"/download/{csv_filename}" if csv_filename else None
         }
 
     except Exception as e:
@@ -183,18 +218,38 @@ async def get_unique_values(
             }
 
         # Count unique values
-        value_counts = pd.Series(all_values).value_counts().head(limit)
+        all_value_counts = pd.Series(all_values).value_counts()
+        value_counts = all_value_counts.head(limit)
 
         results = [
             {"value": str(val), "count": int(count)}
             for val, count in value_counts.items()
         ]
 
+        # Generate CSV export with ALL unique values (not limited)
+        csv_filename = None
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"unique_{column}_{timestamp}_{uuid.uuid4().hex[:8]}.csv"
+            csv_path = EXPORTS_DIR / csv_filename
+
+            # Export all unique values to CSV
+            export_df = pd.DataFrame([
+                {"value": str(val), "count": int(count)}
+                for val, count in all_value_counts.items()
+            ])
+            export_df.to_csv(csv_path, index=False)
+            logger.info(f"Generated CSV export: {csv_filename}")
+        except Exception as e:
+            logger.error(f"Error generating CSV export: {str(e)}")
+
         return {
             "success": True,
             "column": column,
-            "total_unique_values": len(value_counts),
-            "values": results
+            "total_unique_values": len(all_value_counts),
+            "values": results,
+            "csv_export": csv_filename if csv_filename else None,
+            "csv_download_url": f"/download/{csv_filename}" if csv_filename else None
         }
 
     except Exception as e:

@@ -172,6 +172,7 @@ class QueryRouter:
         column = result.get('column', 'value')
         total_duplicates = result.get('total_duplicates', 0)
         duplicates = result.get('duplicates', [])
+        csv_download = result.get('csv_download_url')
 
         if total_duplicates == 0:
             return f"✅ **No duplicate {column}s found** across all {result.get('total_files_analyzed', 0)} files. Each {column} is unique!"
@@ -200,6 +201,13 @@ class QueryRouter:
         if total_duplicates > 20:
             response_parts.append(f"\n\n_Showing top 20 of {total_duplicates} duplicates_")
 
+        # Add CSV export information
+        if csv_download:
+            response_parts.append(f"\n\n📥 **Complete Report Available**")
+            response_parts.append(f"Download the full CSV report with all {total_duplicates} duplicates:")
+            response_parts.append(f"🔗 `{csv_download}`")
+            response_parts.append(f"\nAccess URL: `http://localhost:8000{csv_download}`")
+
         return "\n".join(response_parts)
 
     def _format_unique_response(self, result: Dict[str, Any]) -> str:
@@ -207,6 +215,7 @@ class QueryRouter:
         column = result.get('column', 'value')
         total_unique = result.get('total_unique_values', 0)
         values = result.get('values', [])
+        csv_download = result.get('csv_download_url')
 
         response_parts = [
             f"📊 **Unique {column.upper()}s Analysis**\n",
@@ -221,6 +230,13 @@ class QueryRouter:
 
         if total_unique > 15:
             response_parts.append(f"\n_Showing top 15 of {total_unique} unique values_")
+
+        # Add CSV export information
+        if csv_download:
+            response_parts.append(f"\n\n📥 **Complete Report Available**")
+            response_parts.append(f"Download the full CSV report with all {total_unique} unique values:")
+            response_parts.append(f"🔗 `{csv_download}`")
+            response_parts.append(f"\nAccess URL: `http://localhost:8000{csv_download}`")
 
         return "\n".join(response_parts)
 

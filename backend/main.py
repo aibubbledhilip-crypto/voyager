@@ -155,6 +155,35 @@ async def health_check():
     }
 
 
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    """
+    Download exported CSV files from analytics
+    """
+    try:
+        # Sanitize filename to prevent directory traversal
+        safe_filename = Path(filename).name
+        file_path = Path("./data/exports") / safe_filename
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # Verify it's in the exports directory (security check)
+        if not file_path.resolve().is_relative_to(Path("./data/exports").resolve()):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        return FileResponse(
+            path=str(file_path),
+            filename=safe_filename,
+            media_type="text/csv"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
