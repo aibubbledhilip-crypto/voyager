@@ -21,6 +21,7 @@ from backend.auth import get_current_user, init_admin_user
 from backend.auth_routes import router as auth_router
 from backend.viz_routes import router as viz_router
 from backend.analytics_routes import router as analytics_router
+from backend.query_router import query_router
 
 # Configure logging
 logging.basicConfig(
@@ -291,10 +292,14 @@ async def upload_multiple_files(
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query_data(request: QueryRequest):
+async def query_data(
+    request: QueryRequest,
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
-    Query the data using natural language
-    Returns AI-generated insights based on all uploaded data
+    Intelligent query endpoint that automatically routes to RAG or Analytics
+    based on query intent detection
     """
     try:
         if not rag_engine:
@@ -303,12 +308,132 @@ async def query_data(request: QueryRequest):
         if not request.question or len(request.question.strip()) == 0:
             raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-        result = rag_engine.query(request.question, request.return_sources)
+        question = request.question.strip()
 
-        if result["success"]:
-            return QueryResponse(**result)
+        # Detect query intent
+        intent = query_router.detect_intent(question)
+        logger.info(f"Query intent detected: {intent['type']} (confidence: {intent.get('confidence', 'unknown')})")
+
+        # Route based on intent
+        if intent['type'] == 'duplicate':
+            # Call analytics duplicates endpoint internally
+            from backend.analytics_routes import find_duplicates
+
+            column = intent.get('column', 'msisdn')
+            analytics_result = await find_duplicates(
+                column=column,
+                current_user=current_user,
+                db=db
+            )
+
+            # Format as natural language
+            answer = query_router.format_analytics_response(
+                'duplicate',
+                analytics_result,
+                question
+            )
+
+            return QueryResponse(
+                success=True,
+                question=question,
+                answer=answer,
+                sources=[{
+                    "content": f"Analytics: Duplicate detection on column '{column}'",
+                    "metadata": {
+                        "query_type": "analytics",
+                        "intent": "duplicate_detection",
+                        "column": column
+                    }
+                }] if request.return_sources else None
+            )
+
+        elif intent['type'] == 'unique':
+            # Call analytics unique values endpoint
+            from backend.analytics_routes import get_unique_values
+
+            column = intent.get('column', 'msisdn')
+            analytics_result = await get_unique_values(
+                column=column,
+                limit=100,
+                current_user=current_user,
+                db=db
+            )
+
+            answer = query_router.format_analytics_response(
+                'unique',
+                analytics_result,
+                question
+            )
+
+            return QueryResponse(
+                success=True,
+                question=question,
+                answer=answer,
+                sources=[{
+                    "content": f"Analytics: Unique values for column '{column}'",
+                    "metadata": {
+                        "query_type": "analytics",
+                        "intent": "unique_values",
+                        "column": column
+                    }
+                }] if request.return_sources else None
+            )
+
+        elif intent['type'] == 'aggregate':
+            # Call analytics aggregate endpoint
+            from backend.analytics_routes import aggregate_data
+
+            column = intent.get('column')
+            operation = intent.get('operation', 'count')
+            group_by = intent.get('group_by')
+
+            if not column:
+                # Fall back to RAG if we can't determine column
+                result = rag_engine.query(question, request.return_sources)
+                if result["success"]:
+                    return QueryResponse(**result)
+                else:
+                    raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+
+            analytics_result = await aggregate_data(
+                column=column,
+                operation=operation,
+                group_by=group_by,
+                current_user=current_user,
+                db=db
+            )
+
+            answer = query_router.format_analytics_response(
+                'aggregate',
+                analytics_result,
+                question
+            )
+
+            return QueryResponse(
+                success=True,
+                question=question,
+                answer=answer,
+                sources=[{
+                    "content": f"Analytics: {operation} of {column}" + (f" by {group_by}" if group_by else ""),
+                    "metadata": {
+                        "query_type": "analytics",
+                        "intent": "aggregation",
+                        "operation": operation,
+                        "column": column,
+                        "group_by": group_by
+                    }
+                }] if request.return_sources else None
+            )
+
         else:
-            raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
+            # Use RAG for semantic queries
+            logger.info("Using RAG for semantic query")
+            result = rag_engine.query(question, request.return_sources)
+
+            if result["success"]:
+                return QueryResponse(**result)
+            else:
+                raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
 
     except HTTPException:
         raise
