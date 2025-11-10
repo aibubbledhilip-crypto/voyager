@@ -72,11 +72,12 @@ class DataProcessor:
         total_rows = len(df)
 
         # Create metadata about the entire dataset
+        # Note: ChromaDB only accepts str, int, float, bool - no lists or dicts
         file_metadata = {
             "file_name": file_name,
             "total_rows": total_rows,
-            "columns": df.columns.tolist(),
-            "dtypes": df.dtypes.astype(str).to_dict()
+            "columns_list": ", ".join(df.columns.tolist()),  # Convert list to string
+            "column_count": len(df.columns)
         }
 
         # Add full dataset summary as first chunk
@@ -104,11 +105,15 @@ class DataProcessor:
             # Add column-wise summary for this chunk
             for col in df.columns:
                 if pd.api.types.is_numeric_dtype(chunk_df[col]):
-                    stats = chunk_df[col].describe()
-                    chunk_text_parts.append(
-                        f"\n{col} statistics in this chunk: "
-                        f"mean={stats['mean']:.2f}, min={stats['min']:.2f}, max={stats['max']:.2f}"
-                    )
+                    try:
+                        stats = chunk_df[col].describe()
+                        chunk_text_parts.append(
+                            f"\n{col} statistics in this chunk: "
+                            f"mean={stats.get('mean', 0):.2f}, min={stats.get('min', 0):.2f}, max={stats.get('max', 0):.2f}"
+                        )
+                    except Exception as e:
+                        # Skip if stats calculation fails
+                        logger.warning(f"Could not calculate stats for column {col}: {str(e)}")
 
             chunks.append({
                 "content": "\n".join(chunk_text_parts),
@@ -129,20 +134,29 @@ class DataProcessor:
         insights = {
             "shape": {"rows": int(df.shape[0]), "columns": int(df.shape[1])},
             "columns": df.columns.tolist(),
-            "missing_values": df.isnull().sum().to_dict(),
-            "data_types": df.dtypes.astype(str).to_dict(),
+            "missing_values": {str(k): int(v) for k, v in df.isnull().sum().items()},
+            "data_types": {str(k): str(v) for k, v in df.dtypes.items()},
         }
 
         # Numeric column insights
         numeric_cols = df.select_dtypes(include=['number']).columns
         if len(numeric_cols) > 0:
-            insights["numeric_stats"] = df[numeric_cols].describe().to_dict()
+            try:
+                numeric_stats = df[numeric_cols].describe().to_dict()
+                # Convert numpy types to native Python types
+                insights["numeric_stats"] = {
+                    str(col): {str(k): float(v) if pd.notna(v) else None for k, v in stats.items()}
+                    for col, stats in numeric_stats.items()
+                }
+            except Exception as e:
+                logger.warning(f"Could not generate numeric stats: {str(e)}")
+                insights["numeric_stats"] = {}
 
         # Categorical column insights
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
         if len(categorical_cols) > 0:
             insights["categorical_unique_counts"] = {
-                col: int(df[col].nunique()) for col in categorical_cols
+                str(col): int(df[col].nunique()) for col in categorical_cols
             }
 
         return insights

@@ -143,10 +143,13 @@ Detailed Answer:"""
         """
         Process and add a file to the vectorstore
         """
+        file_name = Path(file_path).name
+
         try:
             if not self.data_processor.is_supported_file(file_path):
                 return {
                     "success": False,
+                    "file_name": file_name,
                     "error": "Unsupported file format"
                 }
 
@@ -155,11 +158,11 @@ Detailed Answer:"""
             if df is None:
                 return {
                     "success": False,
+                    "file_name": file_name,
                     "error": "Failed to read file"
                 }
 
             # Chunk the data
-            file_name = Path(file_path).name
             chunks = self.data_processor.chunk_dataframe(df, file_name)
 
             # Convert to LangChain documents
@@ -191,6 +194,7 @@ Detailed Answer:"""
             logger.error(f"Error adding file {file_path}: {str(e)}")
             return {
                 "success": False,
+                "file_name": file_name,
                 "error": str(e)
             }
 
