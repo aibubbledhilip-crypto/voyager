@@ -2,6 +2,8 @@
 
 Get up and running with the Intelligent RAG Data Analysis Tool in 5 minutes!
 
+Now with **beautiful web GUI** for easy interaction!
+
 ## Prerequisites
 
 - Python 3.9+ installed
@@ -53,28 +55,54 @@ LLM_PROVIDER=anthropic
 LLM_MODEL=claude-3-sonnet-20240229
 ```
 
-## Step 3: Start the Server
+## Step 3: Start the Application
+
+### Option A: With Web GUI (Recommended)
 
 ```bash
-# Easy way - using the startup script
-python run.py
-
-# Or manually with uvicorn
-python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+# Launches both API and beautiful Streamlit GUI
+python run_gui.py
 ```
 
 You should see:
 ```
-🚀 Starting Intelligent RAG Data Analysis Tool...
+🚀 Starting Intelligent RAG Data Analysis Tool - GUI Launcher
 ✅ All dependencies installed
-🌐 Starting server...
+🌐 Starting services...
 📍 API will be available at: http://localhost:8000
-📚 API docs will be available at: http://localhost:8000/docs
+📍 Web GUI will be available at: http://localhost:8501
 ```
 
-## Step 4: Test with Sample Data
+Your browser will automatically open to the Streamlit interface!
 
-Open a new terminal (keep the server running) and run:
+### Option B: API Only + HTML GUI
+
+```bash
+# Starts only the API server
+python run.py
+```
+
+Then access:
+- **HTML GUI**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+
+## Step 4: Use the Application
+
+### With Web GUI (Easy!)
+
+1. **The Streamlit interface opens automatically** at http://localhost:8501
+2. Go to the **"Upload Data"** tab
+3. **Drag and drop** your CSV/Excel files (or click "Choose Files")
+4. Click **"Upload and Process"**
+5. Switch to **"Ask Questions"** tab
+6. Type a question or click a quick question button
+7. **Get instant AI-powered answers!**
+
+See [GUI_GUIDE.md](GUI_GUIDE.md) for complete GUI documentation.
+
+### With Python (For developers)
+
+Open a new terminal (keep the server running):
 
 ```bash
 # Activate virtual environment again

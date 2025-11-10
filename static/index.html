@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Data Analysis Tool</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo"><i class="fas fa-chart-line"></i> Intelligent RAG Data Analysis</h1>
+            <p class="tagline">AI-powered insights from your CSV and Excel files</p>
+            <div id="api-status" class="api-status">
+                <i class="fas fa-circle"></i> <span id="status-text">Checking...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container main-content">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="upload">
+                <i class="fas fa-upload"></i> Upload Data
+            </button>
+            <button class="tab-button" data-tab="query">
+                <i class="fas fa-comments"></i> Ask Questions
+            </button>
+            <button class="tab-button" data-tab="insights">
+                <i class="fas fa-lightbulb"></i> Auto Insights
+            </button>
+            <button class="tab-button" data-tab="overview">
+                <i class="fas fa-table"></i> Data Overview
+            </button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-content active" id="upload-tab">
+            <h2><i class="fas fa-cloud-upload-alt"></i> Upload Your Data Files</h2>
+            <p>Upload CSV or Excel files (supports batch upload of 50+ files)</p>
+
+            <div class="upload-box" id="upload-box">
+                <i class="fas fa-file-upload fa-3x"></i>
+                <p>Drag and drop files here or click to browse</p>
+                <input type="file" id="file-input" multiple accept=".csv,.xlsx,.xls" style="display: none;">
+                <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                    <i class="fas fa-folder-open"></i> Choose Files
+                </button>
+            </div>
+
+            <div id="selected-files" class="selected-files"></div>
+
+            <button id="upload-btn" class="btn btn-success" style="display: none;">
+                <i class="fas fa-rocket"></i> Upload and Process
+            </button>
+
+            <div id="upload-results" class="results"></div>
+        </div>
+
+        <div class="tab-content" id="query-tab">
+            <h2><i class="fas fa-search"></i> Ask Questions About Your Data</h2>
+
+            <div id="query-warning" class="warning" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i> Please upload some data files first!
+            </div>
+
+            <div id="query-interface">
+                <div class="quick-questions">
+                    <h3>💡 Quick Questions</h3>
+                    <div class="quick-btns">
+                        <button class="btn btn-outline" onclick="setQuestion('Provide a comprehensive summary of the data including key statistics and metrics')">
+                            📊 Show summary statistics
+                        </button>
+                        <button class="btn btn-outline" onclick="setQuestion('What are the main trends and patterns in the data?')">
+                            📈 Identify trends
+                        </button>
+                        <button class="btn btn-outline" onclick="setQuestion('Are there any anomalies or unusual patterns in the data?')">
+                            ⚠️ Find anomalies
+                        </button>
+                    </div>
+                </div>
+
+                <div class="query-input-section">
+                    <textarea id="question-input" placeholder="e.g., What are the top 5 products by sales? What trends do you see over time?" rows="4"></textarea>
+                    <div class="query-actions">
+                        <label>
+                            <input type="checkbox" id="show-sources" checked> Show sources
+                        </label>
+                        <button id="ask-btn" class="btn btn-primary" onclick="askQuestion()">
+                            <i class="fas fa-search"></i> Get Answer
+                        </button>
+                    </div>
+                </div>
+
+                <div id="chat-history" class="chat-history"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="insights-tab">
+            <h2><i class="fas fa-magic"></i> Automatic Insights Generation</h2>
+
+            <div id="insights-warning" class="warning" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i> Please upload some data files first!
+            </div>
+
+            <div id="insights-interface">
+                <p>Get AI-generated insights about your data automatically</p>
+
+                <input type="text" id="focus-input" class="form-input" placeholder="Focus Area (optional): e.g., sales trends, customer behavior">
+
+                <button class="btn btn-primary" onclick="generateInsights()">
+                    <i class="fas fa-sparkles"></i> Generate Insights
+                </button>
+
+                <div class="insight-categories">
+                    <h3>📋 Quick Insight Categories</h3>
+                    <div class="category-btns">
+                        <button class="btn btn-outline" onclick="generateInsights('growth trends and patterns over time')">
+                            📈 Growth & Trends
+                        </button>
+                        <button class="btn btn-outline" onclick="generateInsights('customer behavior and segments')">
+                            👥 Customer Analysis
+                        </button>
+                        <button class="btn btn-outline" onclick="generateInsights('financial metrics and performance')">
+                            💰 Financial Performance
+                        </button>
+                        <button class="btn btn-outline" onclick="generateInsights('top performing items, categories, or segments')">
+                            🎯 Top Performers
+                        </button>
+                        <button class="btn btn-outline" onclick="generateInsights('risks, anomalies, and areas of concern')">
+                            ⚠️ Risk & Anomalies
+                        </button>
+                    </div>
+                </div>
+
+                <div id="insights-results" class="insights-results"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="overview-tab">
+            <h2><i class="fas fa-chart-bar"></i> Data Overview</h2>
+
+            <button class="btn btn-outline" onclick="refreshOverview()">
+                <i class="fas fa-sync"></i> Refresh Overview
+            </button>
+
+            <div id="overview-stats" class="stats-grid"></div>
+            <div id="overview-files" class="files-list"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-section">
+            <h3><i class="fas fa-cog"></i> Settings</h3>
+            <button class="btn btn-danger btn-sm" onclick="clearAllData()">
+                <i class="fas fa-trash"></i> Clear All Data
+            </button>
+        </div>
+
+        <div class="sidebar-section">
+            <h3><i class="fas fa-info-circle"></i> About</h3>
+            <p class="sidebar-text">
+                This tool uses <strong>Retrieval Augmented Generation (RAG)</strong> to analyze your data.
+            </p>
+            <ul class="sidebar-list">
+                <li>Upload 50+ files at once</li>
+                <li>Natural language queries</li>
+                <li>AI-powered insights</li>
+                <li>Smart data chunking</li>
+                <li>Persistent storage</li>
+            </ul>
+        </div>
+
+        <div class="sidebar-section" id="sidebar-stats">
+            <h3><i class="fas fa-chart-pie"></i> Statistics</h3>
+            <div class="stat-item">
+                <span class="stat-label">Files:</span>
+                <span class="stat-value" id="stat-files">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Chunks:</span>
+                <span class="stat-value" id="stat-chunks">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p id="loading-text">Processing...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

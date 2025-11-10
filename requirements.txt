@@ -20,5 +20,10 @@ python-dotenv==1.0.0
 pydantic==2.5.2
 pydantic-settings==2.1.0
 
+# GUI and Visualization
+streamlit==1.29.0
+plotly==5.18.0
+requests==2.31.0
+
 # Optional: For local embeddings
 # torch==2.1.1

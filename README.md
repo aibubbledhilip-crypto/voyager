@@ -4,14 +4,15 @@ An AI-powered data analysis tool that uses Retrieval Augmented Generation (RAG) 
 
 ## Features
 
-- **Multi-File Support**: Upload and analyze 50+ Excel/CSV files simultaneously
-- **RAG-Powered Analysis**: Uses LangChain and vector embeddings for intelligent data retrieval
-- **Natural Language Queries**: Ask questions about your data in plain English
-- **Automatic Insights**: Generate comprehensive insights automatically
-- **Flexible LLM Support**: Works with OpenAI GPT or Anthropic Claude
-- **Local or Cloud Embeddings**: Choose between OpenAI embeddings or local Sentence Transformers
-- **RESTful API**: Easy-to-use FastAPI endpoints
-- **Persistent Storage**: ChromaDB vector store persists your data
+- **🎨 Beautiful Web GUI**: Two intuitive interfaces (Streamlit + HTML/JS)
+- **📤 Multi-File Support**: Upload and analyze 50+ Excel/CSV files simultaneously
+- **🤖 RAG-Powered Analysis**: Uses LangChain and vector embeddings for intelligent data retrieval
+- **💬 Natural Language Queries**: Ask questions about your data in plain English
+- **✨ Automatic Insights**: Generate comprehensive insights automatically
+- **🔧 Flexible LLM Support**: Works with OpenAI GPT or Anthropic Claude
+- **📊 Local or Cloud Embeddings**: Choose between OpenAI embeddings or local Sentence Transformers
+- **🚀 RESTful API**: Easy-to-use FastAPI endpoints
+- **💾 Persistent Storage**: ChromaDB vector store persists your data
 
 ## Architecture
 
@@ -94,7 +95,31 @@ An AI-powered data analysis tool that uses Retrieval Augmented Generation (RAG) 
 
 ## Usage
 
-### Starting the Server
+### Option 1: Web GUI (Recommended)
+
+Start the beautiful Streamlit interface:
+
+```bash
+# Launches both API and Streamlit GUI
+python run_gui.py
+```
+
+Then open your browser to:
+- **Streamlit GUI**: http://localhost:8501
+- **API**: http://localhost:8000
+
+Or use the HTML interface:
+
+```bash
+# Start API only
+python run.py
+```
+
+Then open: **http://localhost:8000** (HTML GUI)
+
+See [GUI_GUIDE.md](GUI_GUIDE.md) for complete GUI documentation.
+
+### Option 2: API Only
 
 ```bash
 # From the project root
@@ -314,13 +339,23 @@ voyager/
 │   ├── config.py         # Configuration management
 │   ├── data_processor.py # Data processing & chunking
 │   └── rag_engine.py     # RAG implementation
+├── static/               # HTML/CSS/JS web interface
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
 ├── data/
 │   ├── uploads/          # Uploaded files
 │   └── vectorstore/      # ChromaDB storage
+├── app.py                # Streamlit GUI application
+├── run_gui.py            # GUI launcher script
+├── run.py                # API launcher script
+├── example_usage.py      # Python usage examples
 ├── .env                  # Environment variables
-├── .gitignore
-├── requirements.txt
-└── README.md
+├── requirements.txt      # Python dependencies
+├── README.md             # This file
+├── GUI_GUIDE.md          # Complete GUI documentation
+├── QUICKSTART.md         # Quick start guide
+└── API_DOCUMENTATION.md  # API reference
 ```
 
 ### Running Tests
@@ -333,11 +368,18 @@ pip install pytest pytest-asyncio httpx
 pytest
 ```
 
+## Documentation
+
+- **[README.md](README.md)** - This file, comprehensive overview
+- **[GUI_GUIDE.md](GUI_GUIDE.md)** - Complete guide to using the web interfaces
+- **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
+- **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)** - Full API reference
+
 ## Roadmap
 
-- [ ] Web UI for easier interaction
+- [x] Web UI for easier interaction (Streamlit + HTML)
 - [ ] Support for more file formats (JSON, Parquet)
-- [ ] Advanced visualization of insights
+- [x] Advanced visualization of insights
 - [ ] Multi-language support
 - [ ] Scheduled automatic insights
 - [ ] Export insights to PDF/Word

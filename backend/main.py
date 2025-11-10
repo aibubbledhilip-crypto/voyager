@@ -9,7 +9,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.config import settings
@@ -58,6 +59,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files directory
+static_path = Path(__file__).parent.parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+
 
 # Pydantic models
 class QueryRequest(BaseModel):
@@ -91,9 +97,23 @@ class DataOverviewResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    """Root endpoint"""
+    """Root endpoint - serves the web GUI"""
+    static_index = Path(__file__).parent.parent / "static" / "index.html"
+    if static_index.exists():
+        return FileResponse(static_index)
     return {
         "message": "Intelligent RAG Data Analysis Tool",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "gui": "Install GUI dependencies and restart to access the web interface"
+    }
+
+
+@app.get("/api")
+async def api_info():
+    """API information endpoint"""
+    return {
+        "message": "Intelligent RAG Data Analysis Tool - API",
         "version": "1.0.0",
         "docs": "/docs"
     }
