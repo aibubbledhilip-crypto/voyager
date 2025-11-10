@@ -20,6 +20,7 @@ from backend.database import init_db, get_db, User, UploadedFile as DBUploadedFi
 from backend.auth import get_current_user, init_admin_user
 from backend.auth_routes import router as auth_router
 from backend.viz_routes import router as viz_router
+from backend.analytics_routes import router as analytics_router
 
 # Configure logging
 logging.basicConfig(
@@ -87,6 +88,7 @@ if static_path.exists():
 # Include routers
 app.include_router(auth_router)
 app.include_router(viz_router)
+app.include_router(analytics_router)
 
 
 # Pydantic models

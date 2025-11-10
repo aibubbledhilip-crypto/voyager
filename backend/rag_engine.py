@@ -39,11 +39,19 @@ class RAGEngine:
             if settings.embedding_provider == "openai":
                 if not settings.openai_api_key:
                     raise ValueError("OpenAI API key not provided")
+
+                # Use model without the version suffix to avoid tiktoken warning
+                model_name = settings.embedding_model
+                if model_name == "text-embedding-3-small":
+                    # tiktoken doesn't recognize this model yet, but it works fine
+                    import warnings
+                    warnings.filterwarnings('ignore', message='.*model not found.*')
+
                 self.embeddings = OpenAIEmbeddings(
-                    model=settings.embedding_model,
+                    model=model_name,
                     openai_api_key=settings.openai_api_key
                 )
-                logger.info(f"Initialized OpenAI embeddings: {settings.embedding_model}")
+                logger.info(f"Initialized OpenAI embeddings: {model_name}")
             else:
                 # Use local sentence-transformers
                 self.embeddings = HuggingFaceEmbeddings(
