@@ -261,6 +261,7 @@ Detailed Answer:"""
 
             if not all_docs or 'metadatas' not in all_docs:
                 return {
+                    "success": True,
                     "total_files": 0,
                     "total_chunks": 0,
                     "files": []
@@ -281,6 +282,7 @@ Detailed Answer:"""
                     files_info[file_name]["chunks"] += 1
 
             return {
+                "success": True,
                 "total_files": len(files_info),
                 "total_chunks": len(all_docs['metadatas']),
                 "files": list(files_info.values())
@@ -289,6 +291,7 @@ Detailed Answer:"""
         except Exception as e:
             logger.error(f"Error getting data overview: {str(e)}")
             return {
+                "success": False,
                 "error": str(e)
             }
 
