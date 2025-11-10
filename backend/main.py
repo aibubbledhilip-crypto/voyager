@@ -199,18 +199,27 @@ async def upload_file(
         # Process the file
         result = rag_engine.add_file(str(upload_path))
 
-        # Track in database if authenticated
-        if current_user and result["success"]:
-            tenant = get_user_tenant(db, current_user)
+        # Track in database (always, for both authenticated and unauthenticated users)
+        if result["success"]:
             insights = result.get("insights", {})
+
+            # Get tenant info if authenticated
+            tenant_id = None
+            user_id = None
+            if current_user:
+                from backend.auth import get_user_tenant
+                tenant = get_user_tenant(db, current_user)
+                tenant_id = tenant.id
+                user_id = current_user.id
+
             db_file = DBUploadedFile(
                 filename=file.filename,
                 original_filename=file.filename,
                 file_path=str(upload_path),
                 file_size=file_size,
                 file_type=file_ext.replace('.', ''),
-                user_id=current_user.id,
-                tenant_id=tenant.id,
+                user_id=user_id,
+                tenant_id=tenant_id,
                 rows_count=insights.get('shape', {}).get('rows'),
                 columns_count=insights.get('shape', {}).get('columns'),
                 chunks_created=result.get('chunks_created'),
@@ -218,6 +227,7 @@ async def upload_file(
             )
             db.add(db_file)
             db.commit()
+            logger.info(f"Tracked file in database: {file.filename}")
 
         if result["success"]:
             return FileUploadResponse(**result)
@@ -258,6 +268,7 @@ async def upload_multiple_files(
 
         results = []
         saved_files = []
+        file_metadata = []  # Track file info for database
 
         # Save all uploaded files
         for file in files:
@@ -270,20 +281,61 @@ async def upload_multiple_files(
                 ))
                 continue
 
-            upload_path = Path(settings.upload_dir) / file.filename
+            upload_path = storage_dir / file.filename  # Use storage_dir instead of hardcoded path
+            file_size = 0
             with upload_path.open("wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+                content = file.file.read()
+                file_size = len(content)
+                buffer.write(content)
 
             saved_files.append(str(upload_path))
+            file_metadata.append({
+                'filename': file.filename,
+                'path': str(upload_path),
+                'size': file_size,
+                'type': file_ext.replace('.', '')
+            })
             logger.info(f"Saved uploaded file: {file.filename}")
 
         # Process all saved files
         processing_results = rag_engine.add_multiple_files(saved_files)
 
-        for result in processing_results:
+        # Get tenant info if authenticated (for database tracking)
+        tenant_id = None
+        user_id = None
+        if current_user:
+            from backend.auth import get_user_tenant
+            tenant = get_user_tenant(db, current_user)
+            tenant_id = tenant.id
+            user_id = current_user.id
+
+        # Track all files in database and prepare results
+        for i, result in enumerate(processing_results):
             results.append(FileUploadResponse(**result))
 
-        logger.info(f"Processed {len(files)} files")
+            # Track in database if processing was successful
+            if result["success"] and i < len(file_metadata):
+                metadata = file_metadata[i]
+                insights = result.get("insights", {})
+
+                db_file = DBUploadedFile(
+                    filename=metadata['filename'],
+                    original_filename=metadata['filename'],
+                    file_path=metadata['path'],
+                    file_size=metadata['size'],
+                    file_type=metadata['type'],
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    rows_count=insights.get('shape', {}).get('rows'),
+                    columns_count=insights.get('shape', {}).get('columns'),
+                    chunks_created=result.get('chunks_created'),
+                    processing_status='completed'
+                )
+                db.add(db_file)
+
+        # Commit all database records at once
+        db.commit()
+        logger.info(f"Processed and tracked {len(files)} files in database")
         return results
 
     except Exception as e:
