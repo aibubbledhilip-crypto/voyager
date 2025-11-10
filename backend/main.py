@@ -425,6 +425,32 @@ async def query_data(
                 }] if request.return_sources else None
             )
 
+        elif intent['type'] == 'metadata':
+            # Get overview data
+            logger.info("Retrieving metadata overview")
+            overview = rag_engine.get_data_overview()
+
+            answer = query_router.format_analytics_response(
+                'metadata',
+                overview,
+                question
+            )
+
+            return QueryResponse(
+                success=True,
+                question=question,
+                answer=answer,
+                sources=[{
+                    "content": f"Metadata: Data overview with {overview.get('total_files', 0)} files",
+                    "metadata": {
+                        "query_type": "metadata",
+                        "intent": "overview",
+                        "total_files": overview.get('total_files', 0),
+                        "total_chunks": overview.get('total_chunks', 0)
+                    }
+                }] if request.return_sources else None
+            )
+
         else:
             # Use RAG for semantic queries
             logger.info("Using RAG for semantic query")

@@ -140,7 +140,7 @@ Detailed Answer:"""
             chain_type="stuff",
             retriever=self.vectorstore.as_retriever(
                 search_type="similarity",
-                search_kwargs={"k": 10}  # Retrieve top 10 most relevant chunks
+                search_kwargs={"k": 50}  # Retrieve top 50 chunks for better file coverage
             ),
             chain_type_kwargs={"prompt": prompt},
             return_source_documents=True

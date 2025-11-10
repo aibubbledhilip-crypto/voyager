@@ -36,6 +36,14 @@ class QueryRouter:
             r'\b(what\s+are\s+the|which)\s+.*\s+(unique|distinct)'
         ]
 
+        self.metadata_patterns = [
+            r'\b(how\s+many|count)\s+(files|datasets)',
+            r'\b(list|show|display)\s+(all\s+)?(files|datasets)',
+            r'\b(what\s+files|which\s+files)',
+            r'\bfiles?\s+(do\s+we\s+have|uploaded|available)',
+            r'\boverview\s+of\s+(data|files|datasets)'
+        ]
+
         # Common column name patterns
         self.column_indicators = [
             r'\bmsisdn\b', r'\bimsi\b', r'\bimei\b',
@@ -56,6 +64,13 @@ class QueryRouter:
         }
         """
         question_lower = question.lower()
+
+        # Check for metadata queries (file count, list files, etc.)
+        if self._matches_patterns(question_lower, self.metadata_patterns):
+            return {
+                'type': 'metadata',
+                'confidence': 'high'
+            }
 
         # Check for duplicate detection
         if self._matches_patterns(question_lower, self.duplicate_patterns):
@@ -147,6 +162,8 @@ class QueryRouter:
             return self._format_unique_response(analytics_result)
         elif query_type == 'aggregate':
             return self._format_aggregate_response(analytics_result)
+        elif query_type == 'metadata':
+            return self._format_metadata_response(analytics_result)
 
         return "Analysis completed, but I'm not sure how to present the results."
 
@@ -233,6 +250,41 @@ class QueryRouter:
                 response_parts = [f"📊 **{operation.upper()} of {column}**: {formatted_value}"]
             else:
                 response_parts = [f"📊 Unable to calculate {operation} of {column}"]
+
+        return "\n".join(response_parts)
+
+    def _format_metadata_response(self, result: Dict[str, Any]) -> str:
+        """Format metadata/overview response"""
+        total_files = result.get('total_files', 0)
+        total_chunks = result.get('total_chunks', 0)
+        files = result.get('files', [])
+
+        if total_files == 0:
+            return "📊 **No files have been uploaded yet.**\n\nPlease upload CSV or Excel files to get started with your data analysis."
+
+        response_parts = [
+            f"📊 **Data Overview**\n",
+            f"**Total Files:** {total_files}",
+            f"**Total Data Chunks:** {total_chunks}\n",
+            "\n**Uploaded Files:**\n"
+        ]
+
+        for i, file_info in enumerate(files, 1):
+            file_name = file_info.get('file_name', 'Unknown')
+            total_rows = file_info.get('total_rows', 'N/A')
+            chunks = file_info.get('chunks', 0)
+            columns = file_info.get('columns', '')
+
+            response_parts.append(f"\n{i}. **{file_name}**")
+            response_parts.append(f"   - Rows: {total_rows}")
+            response_parts.append(f"   - Chunks: {chunks}")
+            if columns:
+                # columns might be a string or list
+                if isinstance(columns, str):
+                    cols_display = columns
+                else:
+                    cols_display = ", ".join(columns) if len(columns) <= 5 else f"{', '.join(columns[:5])}, ..."
+                response_parts.append(f"   - Columns: {cols_display}")
 
         return "\n".join(response_parts)
 
