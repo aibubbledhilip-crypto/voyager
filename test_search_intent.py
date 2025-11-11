@@ -26,6 +26,11 @@ test_queries = [
 
     # Duplicate queries
     ("find duplicate msisdns", "duplicate"),
+
+    # Issue/problem queries (should be search)
+    ("what are possible issue we have for the msisdn 19392598468", "search"),
+    ("show me errors for msisdn 12345", "search"),
+    ("what problems does customer_id ABC123 have", "search"),
 ]
 
 print("Testing Intent Detection")

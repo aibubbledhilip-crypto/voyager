@@ -179,7 +179,9 @@ class QueryRouter:
                 r'\b(which|what)\s+files?\s+(have|has|contain)',
                 r'\b(check|show|find|search|list).*files?',
                 r'\bfiles?\s+(with|having|containing)',
-                r'\bhow\s+many\s+files?\s+(have|has|contain)'
+                r'\bhow\s+many\s+files?\s+(have|has|contain)',
+                r'\b(what|which).{0,30}(issue|error|problem|exception)',  # Issues/problems/errors for a value (allow up to 30 chars between)
+                r'\b(show|tell|give|get).*\b(issue|error|problem|data|information|detail)',  # Information about a value
             ]
 
             has_search_intent = any(re.search(ind, text_lower) for ind in search_indicators)
