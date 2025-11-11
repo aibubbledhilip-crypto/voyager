@@ -70,10 +70,10 @@ class RAGEngine:
                     raise ValueError("OpenAI API key not provided")
                 self.llm = ChatOpenAI(
                     model=settings.llm_model,
-                    temperature=0,
+                    temperature=settings.llm_temperature,  # Configurable temperature
                     openai_api_key=settings.openai_api_key
                 )
-                logger.info(f"Initialized OpenAI LLM: {settings.llm_model}")
+                logger.info(f"Initialized OpenAI LLM: {settings.llm_model} (temperature={settings.llm_temperature})")
             else:
                 # For Anthropic, we'll use a custom approach
                 from langchain_community.chat_models import ChatAnthropic
@@ -81,9 +81,10 @@ class RAGEngine:
                     raise ValueError("Anthropic API key not provided")
                 self.llm = ChatAnthropic(
                     model=settings.llm_model,
+                    temperature=settings.llm_temperature,  # Configurable temperature
                     anthropic_api_key=settings.anthropic_api_key
                 )
-                logger.info(f"Initialized Anthropic LLM: {settings.llm_model}")
+                logger.info(f"Initialized Anthropic LLM: {settings.llm_model} (temperature={settings.llm_temperature})")
         except Exception as e:
             logger.error(f"Error initializing LLM: {str(e)}")
             raise
@@ -108,27 +109,36 @@ class RAGEngine:
             raise
 
     def _initialize_qa_chain(self):
-        """Initialize the QA chain with custom prompt"""
-        template = """You are an intelligent data analysis assistant. Use the following context from the datasets to answer the question.
+        """Initialize the QA chain with anti-hallucination prompt"""
+        template = """You are a precise data analysis assistant. Your role is to provide accurate answers based ONLY on the provided context.
 
-The context contains data from multiple Excel/CSV files. Each piece of context includes:
+CRITICAL RULES TO PREVENT HALLUCINATION:
+1. ONLY use information explicitly present in the context below
+2. DO NOT make assumptions or extrapolate beyond the given data
+3. DO NOT use external knowledge or general information
+4. If the context lacks sufficient information to answer, clearly state: "The provided data does not contain enough information to answer this question."
+5. ALWAYS cite which specific file(s) you're referencing
+6. For numerical questions, ONLY provide numbers that appear in the context
+7. If asked about data not present in the context, say: "I don't have data about [topic] in the uploaded files."
+
+The context contains data from multiple Excel/CSV files:
 - Dataset summaries with column names, data types, and statistics
 - Actual data rows from the files
 - Metadata about the source files
-
-When answering:
-1. Provide specific insights based on the data
-2. Reference which dataset(s) you're using
-3. Include relevant statistics, trends, or patterns
-4. If asked for numerical analysis, provide precise calculations
-5. If the context doesn't contain enough information, say so clearly
 
 Context from the datasets:
 {context}
 
 Question: {question}
 
-Detailed Answer:"""
+Instructions for your answer:
+1. Start by identifying which file(s) contain relevant information
+2. Provide specific insights based ONLY on the data shown above
+3. Include relevant statistics, but ONLY those present in the context
+4. If asked for counts/aggregations you cannot verify from the context, suggest using the analytics endpoints instead
+5. If uncertain or data is incomplete, explicitly state the limitation
+
+Answer:"""
 
         prompt = PromptTemplate(
             template=template,
@@ -145,7 +155,7 @@ Detailed Answer:"""
             chain_type_kwargs={"prompt": prompt},
             return_source_documents=True
         )
-        logger.info("Initialized QA chain")
+        logger.info("Initialized QA chain with anti-hallucination prompt")
 
     def add_file(self, file_path: str) -> Dict[str, Any]:
         """
@@ -214,9 +224,69 @@ Detailed Answer:"""
             results.append(result)
         return results
 
+    def _validate_answer(self, answer: str, sources: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Validate answer for potential hallucination markers
+        Returns: {is_valid: bool, warnings: List[str], confidence: str}
+        """
+        warnings = []
+
+        # Hallucination markers (phrases that suggest made-up information)
+        hallucination_markers = [
+            "i think", "probably", "might be", "could be", "perhaps",
+            "in general", "typically", "usually", "commonly",
+            "based on my knowledge", "as far as i know"
+        ]
+
+        answer_lower = answer.lower()
+
+        # Check for hallucination markers
+        for marker in hallucination_markers:
+            if marker in answer_lower:
+                warnings.append(f"Uncertain language detected: '{marker}'")
+
+        # Check if answer mentions file names from sources
+        if sources and settings.require_source_citation:
+            source_files = set()
+            for source in sources:
+                if 'metadata' in source and 'file_name' in source['metadata']:
+                    source_files.add(source['metadata']['file_name'])
+
+            # Check if at least one source file is mentioned in the answer
+            files_mentioned = any(file_name in answer for file_name in source_files)
+            if not files_mentioned and source_files:
+                warnings.append("Answer does not cite specific source files")
+
+        # Check for "I don't have" or "not enough information" (good - means honest about limitations)
+        honesty_markers = [
+            "don't have", "not enough information", "cannot determine",
+            "insufficient data", "not present in", "does not contain"
+        ]
+        is_honest = any(marker in answer_lower for marker in honesty_markers)
+
+        # Determine confidence
+        if len(warnings) == 0:
+            confidence = "high"
+        elif len(warnings) <= 2:
+            confidence = "medium"
+        else:
+            confidence = "low"
+
+        # If answer is honestly stating limitations, that's actually good
+        if is_honest:
+            confidence = "high"  # Honesty about limitations is good
+            warnings = [w for w in warnings if "uncertain language" not in w.lower()]
+
+        return {
+            "is_valid": len(warnings) <= 2,  # Allow up to 2 minor warnings
+            "warnings": warnings,
+            "confidence": confidence,
+            "is_honest_about_limitations": is_honest
+        }
+
     def query(self, question: str, return_sources: bool = True) -> Dict[str, Any]:
         """
-        Query the RAG system
+        Query the RAG system with anti-hallucination validation
         """
         try:
             if not self.qa_chain:
@@ -228,20 +298,46 @@ Detailed Answer:"""
             # Run the query
             result = self.qa_chain({"query": question})
 
-            response = {
-                "success": True,
-                "question": question,
-                "answer": result["result"]
-            }
+            answer = result["result"]
+            sources = []
 
-            if return_sources and "source_documents" in result:
-                sources = []
+            if "source_documents" in result:
                 for doc in result["source_documents"]:
                     sources.append({
                         "content": doc.page_content[:500],  # First 500 chars
                         "metadata": doc.metadata
                     })
+
+            # Validate answer for hallucination markers
+            validation = None
+            if settings.enable_answer_validation:
+                validation = self._validate_answer(answer, sources)
+                logger.info(f"Answer validation: confidence={validation['confidence']}, warnings={len(validation['warnings'])}")
+
+                # Add warning to answer if confidence is low
+                if validation['confidence'] == 'low' and validation['warnings']:
+                    warning_note = "\n\n⚠️ **Note**: This answer may be uncertain. Validation warnings:\n"
+                    for warning in validation['warnings']:
+                        warning_note += f"- {warning}\n"
+                    warning_note += "\nConsider using analytics endpoints for exact data queries."
+                    answer += warning_note
+
+            response = {
+                "success": True,
+                "question": question,
+                "answer": answer
+            }
+
+            if return_sources:
                 response["sources"] = sources
+
+            # Add validation metadata if enabled
+            if validation and settings.enable_answer_validation:
+                response["validation"] = {
+                    "confidence": validation["confidence"],
+                    "warnings": validation["warnings"],
+                    "is_valid": validation["is_valid"]
+                }
 
             logger.info(f"Successfully answered query: {question[:100]}")
             return response

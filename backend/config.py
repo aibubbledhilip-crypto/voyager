@@ -15,10 +15,15 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     llm_provider: Literal["openai", "anthropic"] = "openai"
     llm_model: str = "gpt-4-turbo-preview"
+    llm_temperature: float = 0.0  # 0 for deterministic (prevents hallucination), 0.7 for creative
 
     # Embedding Configuration
     embedding_provider: Literal["openai", "sentence-transformers"] = "openai"
     embedding_model: str = "text-embedding-3-small"
+
+    # Anti-Hallucination Settings
+    enable_answer_validation: bool = True  # Validate answers for hallucination markers
+    require_source_citation: bool = True   # Require file citations in answers
 
     # Vector Store
     chroma_persist_directory: str = "./data/vectorstore"
