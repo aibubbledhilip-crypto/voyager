@@ -56,6 +56,8 @@ for query, expected_type in test_queries:
         print(f"  Column: {intent.get('column')}")
     if intent.get('value'):
         print(f"  Value: {intent.get('value')}")
+    if intent.get('needs_analysis'):
+        print(f"  Needs Analysis: ✓")
 
 print("\n" + "=" * 80)
 print(f"Test Complete! Passed: {passed}/{len(test_queries)}, Failed: {failed}/{len(test_queries)}")

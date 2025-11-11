@@ -538,8 +538,9 @@ async def query_data(
 
             column = intent.get('column', 'msisdn')
             value = intent.get('value', '')
+            needs_analysis = intent.get('needs_analysis', False)
 
-            logger.info(f"Searching for {column}={value} across all files")
+            logger.info(f"Searching for {column}={value} across all files, needs_analysis={needs_analysis}")
 
             analytics_result = await search_value(
                 column=column,
@@ -548,24 +549,95 @@ async def query_data(
                 db=db
             )
 
-            answer = query_router.format_analytics_response(
-                'search',
-                analytics_result,
-                question
-            )
+            # If user wants analysis (e.g., "what issues does this MSISDN have"), use LLM to analyze results
+            if needs_analysis and analytics_result.get('success') and analytics_result.get('total_matches', 0) > 0:
+                logger.info("User requested analysis of search results, invoking LLM")
+
+                # Prepare the data for LLM analysis
+                results = analytics_result.get('results', [])
+
+                # Build context from all matching rows
+                context_parts = [
+                    f"Analyzing data for {column} = {value}",
+                    f"Found {analytics_result.get('total_matches')} total occurrences across {analytics_result.get('files_containing_value')} file(s).\n",
+                    "Complete data:\n"
+                ]
+
+                for file_result in results:
+                    filename = file_result.get('filename', 'Unknown')
+                    rows = file_result.get('rows', [])
+                    context_parts.append(f"\n### From file: {filename}")
+
+                    for idx, row in enumerate(rows, 1):
+                        row_str = ", ".join([f"{k}: {v}" for k, v in row.items()])
+                        context_parts.append(f"Row {idx}: {row_str}")
+
+                context = "\n".join(context_parts)
+
+                # Create analysis prompt
+                analysis_prompt = f"""Based on the complete data retrieved for {column} '{value}', please provide a comprehensive analysis:
+
+{context}
+
+Please analyze and summarize:
+1. What issues or problems are present in this data?
+2. What do the error codes or DQ numbers mean?
+3. Are there any patterns or repeated issues?
+4. What is the key information I should know?
+
+Provide a clear, concise summary in plain language."""
+
+                # Use LLM to analyze
+                from langchain_openai import ChatOpenAI
+                from backend.config import settings
+
+                llm = ChatOpenAI(
+                    model=settings.llm_model,
+                    temperature=0.0,  # Deterministic analysis
+                    openai_api_key=settings.openai_api_key
+                )
+
+                try:
+                    analysis_response = llm.invoke(analysis_prompt)
+                    analysis = analysis_response.content
+
+                    # Combine analysis with download link
+                    answer = f"## 📊 Analysis for {column.upper()}: `{value}`\n\n{analysis}"
+
+                    if analytics_result.get('csv_download_url'):
+                        answer += f"\n\n---\n\n📥 **Complete Data Export**\n"
+                        answer += f"Download all {analytics_result.get('total_matches')} rows in CSV format:\n"
+                        answer += f"🔗 `{analytics_result.get('csv_download_url')}`"
+
+                except Exception as e:
+                    logger.error(f"Error during LLM analysis: {str(e)}")
+                    # Fallback to standard search response
+                    answer = query_router.format_analytics_response(
+                        'search',
+                        analytics_result,
+                        question
+                    )
+            else:
+                # Standard search response without analysis
+                answer = query_router.format_analytics_response(
+                    'search',
+                    analytics_result,
+                    question
+                )
 
             return QueryResponse(
                 success=True,
                 question=question,
                 answer=answer,
                 sources=[{
-                    "content": f"Analytics: Search for {column}={value}",
+                    "content": f"Analytics: Search for {column}={value}" + (" with LLM analysis" if needs_analysis else ""),
                     "metadata": {
                         "query_type": "analytics",
                         "intent": "search",
                         "column": column,
                         "value": value,
-                        "total_matches": analytics_result.get('total_matches', 0)
+                        "total_matches": analytics_result.get('total_matches', 0),
+                        "includes_analysis": needs_analysis
                     }
                 }] if request.return_sources else None
             )

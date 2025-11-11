@@ -23,6 +23,16 @@ class QueryRouter:
             r'\bfiles?\s+(?:with|having|containing)\s+(?:the\s+)?(\w+)\s+([^\s]+)',
         ]
 
+        # Patterns that indicate user wants analysis/summary, not just raw data
+        self.analysis_indicators = [
+            r'\b(what|which).*(issue|error|problem|exception)',
+            r'\b(show|tell|give|get).*(issue|error|problem|exception)',  # "show me errors", "tell me problems"
+            r'\bsummar(y|ize|ise)',
+            r'\bexplain',
+            r'\banalyze|analyse',
+            r'\bwhat.*(mean|means)',
+        ]
+
         self.column_comparison_patterns = [
             r'\b(which|what)\s+column.*(most|highest|largest|maximum).*duplicat',
             r'\bcompare.*duplicat.*column',
@@ -187,11 +197,15 @@ class QueryRouter:
             has_search_intent = any(re.search(ind, text_lower) for ind in search_indicators)
 
             if has_search_intent:
-                logger.info(f"Detected search intent: column={column_found}, value={value}")
+                # Check if user wants analysis/summary of the results
+                needs_analysis = self._matches_patterns(text_lower, self.analysis_indicators)
+
+                logger.info(f"Detected search intent: column={column_found}, value={value}, needs_analysis={needs_analysis}")
                 return {
                     'type': 'search',
                     'column': column_found,
                     'value': value,
+                    'needs_analysis': needs_analysis,
                     'confidence': 'high'
                 }
 
