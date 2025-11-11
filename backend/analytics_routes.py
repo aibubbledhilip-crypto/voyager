@@ -357,6 +357,127 @@ async def aggregate_data(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/search")
+async def search_value(
+    column: str = QueryParam(..., description="Column name to search in (e.g., 'msisdn')"),
+    value: str = QueryParam(..., description="Value to search for"),
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Search for a specific value in a column across all uploaded files
+    Returns: list of files containing the value with complete row data
+    """
+    try:
+        # Get all uploaded files for this user (or all if no auth)
+        query = db.query(UploadedFile).filter(UploadedFile.processing_status == 'completed')
+
+        if current_user:
+            query = query.filter(UploadedFile.user_id == current_user.id)
+
+        files = query.all()
+
+        if not files:
+            return {
+                "success": False,
+                "error": "No files uploaded yet"
+            }
+
+        # Search across all files
+        results = []
+        total_matches = 0
+        csv_rows = []
+
+        for file_record in files:
+            try:
+                file_path = Path(file_record.file_path)
+
+                if not file_path.exists():
+                    logger.warning(f"File not found: {file_path}")
+                    continue
+
+                # Read file based on type
+                if file_record.file_type == 'csv':
+                    df = pd.read_csv(file_path)
+                elif file_record.file_type in ['xlsx', 'xls']:
+                    df = pd.read_excel(file_path)
+                else:
+                    continue
+
+                # Check if column exists
+                if column not in df.columns:
+                    continue
+
+                # Search for the value (convert both to string for comparison)
+                matches = df[df[column].astype(str) == str(value)]
+
+                if len(matches) > 0:
+                    match_count = len(matches)
+                    total_matches += match_count
+
+                    # Convert matches to dict format
+                    match_rows = matches.to_dict('records')
+
+                    results.append({
+                        'filename': file_record.filename,
+                        'match_count': match_count,
+                        'rows': match_rows[:10]  # Limit to first 10 rows per file in API response
+                    })
+
+                    # Add all rows to CSV export
+                    for row in match_rows:
+                        csv_row = {'_source_file': file_record.filename}
+                        csv_row.update(row)
+                        csv_rows.append(csv_row)
+
+            except Exception as e:
+                logger.error(f"Error reading {file_record.filename}: {str(e)}")
+                continue
+
+        if total_matches == 0:
+            return {
+                "success": True,
+                "column": column,
+                "value": value,
+                "total_matches": 0,
+                "total_files_searched": len(files),
+                "files_containing_value": 0,
+                "message": f"Value '{value}' not found in column '{column}' across any files",
+                "results": []
+            }
+
+        # Generate CSV export
+        csv_filename = None
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_value = str(value)[:20].replace('/', '_').replace('\\', '_')  # Sanitize for filename
+            csv_filename = f"search_{column}_{safe_value}_{timestamp}_{uuid.uuid4().hex[:8]}.csv"
+            csv_path = EXPORTS_DIR / csv_filename
+
+            # Create DataFrame and export to CSV
+            export_df = pd.DataFrame(csv_rows)
+            export_df.to_csv(csv_path, index=False)
+            logger.info(f"Generated CSV export: {csv_filename} with {len(csv_rows)} rows")
+        except Exception as e:
+            logger.error(f"Error generating CSV export: {str(e)}")
+
+        return {
+            "success": True,
+            "column": column,
+            "value": value,
+            "total_matches": total_matches,
+            "total_files_searched": len(files),
+            "files_containing_value": len(results),
+            "results": results,
+            "csv_export": csv_filename if csv_filename else None,
+            "csv_download_url": f"/download/{csv_filename}" if csv_filename else None
+        }
+
+    except Exception as e:
+        logger.error(f"Error searching for value: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/columns")
 async def list_all_columns(
     current_user: Optional[User] = Depends(get_current_user),

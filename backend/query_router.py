@@ -16,6 +16,13 @@ class QueryRouter:
 
     def __init__(self):
         # Pattern definitions for different query types
+        self.search_patterns = [
+            r'\b(find|search\s+for|look\s+for|locate)\s+.*\s+(\w+)\s*[:\s]+\s*([^\s]+)',
+            r'\b(which|what)\s+files?\s+(have|has|contain|contains)\s+.*\s+(\w+)\s*[:\s]+\s*([^\s]+)',
+            r'\b(check|show|list).*\s+(files?|data).*\s+(has|have|contains?)\s+(?:the\s+)?(\w+)\s+([^\s]+)',
+            r'\bfiles?\s+(?:with|having|containing)\s+(?:the\s+)?(\w+)\s+([^\s]+)',
+        ]
+
         self.duplicate_patterns = [
             r'\b(duplicate|repeated|repeat|occurring|appears?\s+multiple)\b',
             r'\b(how\s+many\s+times|occurrence|count.*same)\b',
@@ -37,10 +44,10 @@ class QueryRouter:
         ]
 
         self.metadata_patterns = [
-            r'\b(how\s+many|count)\s+(files|datasets)',
-            r'\b(list|show|display)\s+(all\s+)?(files|datasets)',
-            r'\b(what\s+files|which\s+files)',
-            r'\bfiles?\s+(do\s+we\s+have|uploaded|available)',
+            r'\b(how\s+many|count)\s+(files|datasets)(?!\s+(?:have|has|contain|with))',  # Don't match if followed by have/has/contain
+            r'\b(list|show|display)\s+(all\s+)?(files|datasets)(?!\s+(?:with|having|containing))',  # Don't match if followed by with/having
+            r'\b(what\s+files|which\s+files)(?!\s+(?:have|has|contain))',  # Don't match if followed by have/has/contain
+            r'\bfiles?\s+(do\s+we\s+have|uploaded|available)(?:\?|$)',  # Only at end of question
             r'\boverview\s+of\s+(data|files|datasets)'
         ]
 
@@ -57,13 +64,19 @@ class QueryRouter:
         """
         Detect the intent of the query
         Returns: {
-            'type': 'duplicate' | 'aggregate' | 'unique' | 'rag',
+            'type': 'search' | 'duplicate' | 'aggregate' | 'unique' | 'metadata' | 'rag',
             'column': extracted column name or None,
+            'value': for search queries,
             'operation': for aggregate queries,
             'group_by': for grouped aggregations
         }
         """
         question_lower = question.lower()
+
+        # Check for search queries FIRST (before metadata)
+        search_result = self._detect_search(question_lower, question)
+        if search_result:
+            return search_result
 
         # Check for metadata queries (file count, list files, etc.)
         if self._matches_patterns(question_lower, self.metadata_patterns):
@@ -113,6 +126,58 @@ class QueryRouter:
     def _matches_patterns(self, text: str, patterns: List[str]) -> bool:
         """Check if text matches any of the patterns"""
         return any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns)
+
+    def _detect_search(self, text_lower: str, original_text: str) -> Optional[Dict[str, Any]]:
+        """
+        Detect if this is a search query for a specific value
+        Returns: {type: 'search', column: str, value: str, confidence: 'high'} or None
+        """
+        # Pattern to capture: "check how many files has the msisdn 19392598468"
+        # or "which files have msisdn 19392598468"
+        # or "find msisdn 19392598468"
+
+        # Try to find column name and value
+        # Look for common pattern: [action] [column_name] [value]
+
+        # First, check if any column indicator is present
+        column_found = None
+        for pattern in self.column_indicators:
+            match = re.search(pattern, text_lower, re.IGNORECASE)
+            if match:
+                column_found = match.group(0).strip().replace(' ', '_').lower()
+                break
+
+        if not column_found:
+            return None
+
+        # Now try to extract the value after the column name
+        # Pattern: column_name followed by a value (number or string)
+        value_pattern = rf'{re.escape(column_found)}\s+([^\s,?.]+)'
+        value_match = re.search(value_pattern, text_lower, re.IGNORECASE)
+
+        if value_match:
+            value = value_match.group(1).strip()
+
+            # Check if this is actually a search query (has search indicators)
+            search_indicators = [
+                r'\b(which|what)\s+files?\s+(have|has|contain)',
+                r'\b(check|show|find|search|list).*files?',
+                r'\bfiles?\s+(with|having|containing)',
+                r'\bhow\s+many\s+files?\s+(have|has|contain)'
+            ]
+
+            has_search_intent = any(re.search(ind, text_lower) for ind in search_indicators)
+
+            if has_search_intent:
+                logger.info(f"Detected search intent: column={column_found}, value={value}")
+                return {
+                    'type': 'search',
+                    'column': column_found,
+                    'value': value,
+                    'confidence': 'high'
+                }
+
+        return None
 
     def _extract_column(self, text: str) -> Optional[str]:
         """
@@ -164,6 +229,8 @@ class QueryRouter:
             return self._format_aggregate_response(analytics_result)
         elif query_type == 'metadata':
             return self._format_metadata_response(analytics_result)
+        elif query_type == 'search':
+            return self._format_search_response(analytics_result)
 
         return "Analysis completed, but I'm not sure how to present the results."
 
@@ -301,6 +368,54 @@ class QueryRouter:
                 else:
                     cols_display = ", ".join(columns) if len(columns) <= 5 else f"{', '.join(columns[:5])}, ..."
                 response_parts.append(f"   - Columns: {cols_display}")
+
+        return "\n".join(response_parts)
+
+    def _format_search_response(self, result: Dict[str, Any]) -> str:
+        """Format search results as natural language"""
+        column = result.get('column', 'value')
+        value = result.get('value', '')
+        total_matches = result.get('total_matches', 0)
+        files_containing = result.get('files_containing_value', 0)
+        total_searched = result.get('total_files_searched', 0)
+        results = result.get('results', [])
+        csv_download = result.get('csv_download_url')
+
+        if total_matches == 0:
+            return f"🔍 **Search Results**\n\nValue **`{value}`** not found in column **{column}** across {total_searched} file(s).\n\nThe value does not exist in any of your uploaded files."
+
+        response_parts = [
+            f"🔍 **Search Results for {column.upper()}: `{value}`**\n",
+            f"Found **{total_matches} match(es)** across **{files_containing} file(s)** (searched {total_searched} total files).\n",
+            "\n**Files Containing This Value:**\n"
+        ]
+
+        for i, file_result in enumerate(results, 1):
+            filename = file_result.get('filename', 'Unknown')
+            match_count = file_result.get('match_count', 0)
+            rows = file_result.get('rows', [])
+
+            response_parts.append(f"\n{i}. **{filename}** ({match_count} occurrence(s))")
+
+            # Show first few rows
+            if rows:
+                response_parts.append("   **Sample rows:**")
+                for j, row in enumerate(rows[:3], 1):  # Limit to 3 rows per file
+                    # Format row data nicely
+                    row_str = ", ".join([f"{k}: {v}" for k, v in list(row.items())[:5]])  # First 5 columns
+                    if len(row) > 5:
+                        row_str += ", ..."
+                    response_parts.append(f"   {j}. {row_str}")
+
+                if match_count > 3:
+                    response_parts.append(f"   _...and {match_count - 3} more row(s)_")
+
+        # Add CSV export information
+        if csv_download:
+            response_parts.append(f"\n\n📥 **Complete Report Available**")
+            response_parts.append(f"Download the full CSV report with all {total_matches} matching row(s):")
+            response_parts.append(f"🔗 `{csv_download}`")
+            response_parts.append(f"\nAccess URL: `http://localhost:8000{csv_download}`")
 
         return "\n".join(response_parts)
 

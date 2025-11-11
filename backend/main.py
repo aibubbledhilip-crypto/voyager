@@ -532,6 +532,44 @@ async def query_data(
                 }] if request.return_sources else None
             )
 
+        elif intent['type'] == 'search':
+            # Call analytics search endpoint
+            from backend.analytics_routes import search_value
+
+            column = intent.get('column', 'msisdn')
+            value = intent.get('value', '')
+
+            logger.info(f"Searching for {column}={value} across all files")
+
+            analytics_result = await search_value(
+                column=column,
+                value=value,
+                current_user=current_user,
+                db=db
+            )
+
+            answer = query_router.format_analytics_response(
+                'search',
+                analytics_result,
+                question
+            )
+
+            return QueryResponse(
+                success=True,
+                question=question,
+                answer=answer,
+                sources=[{
+                    "content": f"Analytics: Search for {column}={value}",
+                    "metadata": {
+                        "query_type": "analytics",
+                        "intent": "search",
+                        "column": column,
+                        "value": value,
+                        "total_matches": analytics_result.get('total_matches', 0)
+                    }
+                }] if request.return_sources else None
+            )
+
         else:
             # Use RAG for semantic queries
             logger.info("Using RAG for semantic query")
