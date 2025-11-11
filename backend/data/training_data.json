@@ -1,0 +1,934 @@
+[
+  {
+    "text": "which files have msisdn 19392598468",
+    "label": "search"
+  },
+  {
+    "text": "find msisdn 12345678901",
+    "label": "search"
+  },
+  {
+    "text": "search for customer_id ABC123",
+    "label": "search"
+  },
+  {
+    "text": "locate imei 123456789012345",
+    "label": "search"
+  },
+  {
+    "text": "which files contain account_id 9876",
+    "label": "search"
+  },
+  {
+    "text": "show me files with order_id ORD001",
+    "label": "search"
+  },
+  {
+    "text": "check how many files has the msisdn 555666777",
+    "label": "search"
+  },
+  {
+    "text": "what files have imsi 123456789012345",
+    "label": "search"
+  },
+  {
+    "text": "look for segment premium",
+    "label": "search"
+  },
+  {
+    "text": "find all files containing msisdn 1234567890",
+    "label": "search"
+  },
+  {
+    "text": "what are possible issues for msisdn 19392598468",
+    "label": "search"
+  },
+  {
+    "text": "show me errors for customer_id XYZ789",
+    "label": "search"
+  },
+  {
+    "text": "what problems does msisdn 999888777 have",
+    "label": "search"
+  },
+  {
+    "text": "what issues are there for imei 111222333444555",
+    "label": "search"
+  },
+  {
+    "text": "tell me about errors for account_id 12345",
+    "label": "search"
+  },
+  {
+    "text": "get issues for order_id ORD999",
+    "label": "search"
+  },
+  {
+    "text": "what's wrong with msisdn 123456789",
+    "label": "search"
+  },
+  {
+    "text": "show problems with customer_id CUS001",
+    "label": "search"
+  },
+  {
+    "text": "explain errors for imsi 987654321",
+    "label": "search"
+  },
+  {
+    "text": "analyze issues for msisdn 555444333",
+    "label": "search"
+  },
+  {
+    "text": "files containing the msisdn 12345",
+    "label": "search"
+  },
+  {
+    "text": "where is msisdn 99999",
+    "label": "search"
+  },
+  {
+    "text": "do we have data for customer_id TEST123",
+    "label": "search"
+  },
+  {
+    "text": "is there any file with imei 999888777666",
+    "label": "search"
+  },
+  {
+    "text": "check if msisdn 111222333 exists in files",
+    "label": "search"
+  },
+  {
+    "text": "find duplicate msisdns",
+    "label": "duplicate"
+  },
+  {
+    "text": "find duplicate customer_ids",
+    "label": "duplicate"
+  },
+  {
+    "text": "show me duplicate imeis",
+    "label": "duplicate"
+  },
+  {
+    "text": "list duplicate account_ids",
+    "label": "duplicate"
+  },
+  {
+    "text": "which msisdns appear multiple times",
+    "label": "duplicate"
+  },
+  {
+    "text": "find repeated imsis",
+    "label": "duplicate"
+  },
+  {
+    "text": "show duplicate segments",
+    "label": "duplicate"
+  },
+  {
+    "text": "find msisdn duplicates",
+    "label": "duplicate"
+  },
+  {
+    "text": "are there any duplicate order_ids",
+    "label": "duplicate"
+  },
+  {
+    "text": "check for duplicate values in msisdn",
+    "label": "duplicate"
+  },
+  {
+    "text": "find dupes in msisdn",
+    "label": "duplicate"
+  },
+  {
+    "text": "show repeated msisdns",
+    "label": "duplicate"
+  },
+  {
+    "text": "which msisdns occur more than once",
+    "label": "duplicate"
+  },
+  {
+    "text": "find same msisdn appearing multiple times",
+    "label": "duplicate"
+  },
+  {
+    "text": "list msisdns that repeat",
+    "label": "duplicate"
+  },
+  {
+    "text": "show me msisdns with multiple occurrences",
+    "label": "duplicate"
+  },
+  {
+    "text": "find all repeated customer_ids",
+    "label": "duplicate"
+  },
+  {
+    "text": "duplicate detection for imei",
+    "label": "duplicate"
+  },
+  {
+    "text": "check duplicate entries in account_id",
+    "label": "duplicate"
+  },
+  {
+    "text": "identify repeated imsi values",
+    "label": "duplicate"
+  },
+  {
+    "text": "are there any msisdns that appear twice",
+    "label": "duplicate"
+  },
+  {
+    "text": "which customer ids are duplicated",
+    "label": "duplicate"
+  },
+  {
+    "text": "show me repeating imeis",
+    "label": "duplicate"
+  },
+  {
+    "text": "find msisdns that occur multiple times",
+    "label": "duplicate"
+  },
+  {
+    "text": "list all duplicate entries for segment",
+    "label": "duplicate"
+  },
+  {
+    "text": "list unique segments",
+    "label": "unique"
+  },
+  {
+    "text": "show unique customer_ids",
+    "label": "unique"
+  },
+  {
+    "text": "what are the unique msisdns",
+    "label": "unique"
+  },
+  {
+    "text": "list all unique imeis",
+    "label": "unique"
+  },
+  {
+    "text": "show distinct segments",
+    "label": "unique"
+  },
+  {
+    "text": "list unique values in plan",
+    "label": "unique"
+  },
+  {
+    "text": "what are the different segments",
+    "label": "unique"
+  },
+  {
+    "text": "show all unique statuses",
+    "label": "unique"
+  },
+  {
+    "text": "list distinct customer_ids",
+    "label": "unique"
+  },
+  {
+    "text": "what unique regions do we have",
+    "label": "unique"
+  },
+  {
+    "text": "show me all unique msisdns",
+    "label": "unique"
+  },
+  {
+    "text": "list all different segments",
+    "label": "unique"
+  },
+  {
+    "text": "what are the distinct values in category",
+    "label": "unique"
+  },
+  {
+    "text": "show unique entries for product",
+    "label": "unique"
+  },
+  {
+    "text": "list all different plans",
+    "label": "unique"
+  },
+  {
+    "text": "what unique cities are in the data",
+    "label": "unique"
+  },
+  {
+    "text": "show distinct account_ids",
+    "label": "unique"
+  },
+  {
+    "text": "list unique order_ids",
+    "label": "unique"
+  },
+  {
+    "text": "what are all the different segments",
+    "label": "unique"
+  },
+  {
+    "text": "show me distinct msisdns",
+    "label": "unique"
+  },
+  {
+    "text": "how many different segments exist",
+    "label": "unique"
+  },
+  {
+    "text": "what segments do we have",
+    "label": "unique"
+  },
+  {
+    "text": "show me all the different plans",
+    "label": "unique"
+  },
+  {
+    "text": "list every unique customer_id",
+    "label": "unique"
+  },
+  {
+    "text": "what are the available statuses",
+    "label": "unique"
+  },
+  {
+    "text": "count msisdns",
+    "label": "aggregate"
+  },
+  {
+    "text": "how many customer_ids are there",
+    "label": "aggregate"
+  },
+  {
+    "text": "total number of orders",
+    "label": "aggregate"
+  },
+  {
+    "text": "count unique segments",
+    "label": "aggregate"
+  },
+  {
+    "text": "how many records do we have",
+    "label": "aggregate"
+  },
+  {
+    "text": "count rows with status active",
+    "label": "aggregate"
+  },
+  {
+    "text": "number of msisdns by segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "count customer_ids per region",
+    "label": "aggregate"
+  },
+  {
+    "text": "how many orders by status",
+    "label": "aggregate"
+  },
+  {
+    "text": "total msisdns in each file",
+    "label": "aggregate"
+  },
+  {
+    "text": "sum of revenue",
+    "label": "aggregate"
+  },
+  {
+    "text": "total revenue by segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "add up all amounts",
+    "label": "aggregate"
+  },
+  {
+    "text": "sum price by category",
+    "label": "aggregate"
+  },
+  {
+    "text": "total sales per region",
+    "label": "aggregate"
+  },
+  {
+    "text": "cumulative revenue",
+    "label": "aggregate"
+  },
+  {
+    "text": "sum of all transactions",
+    "label": "aggregate"
+  },
+  {
+    "text": "total amount by customer_id",
+    "label": "aggregate"
+  },
+  {
+    "text": "sum revenue by plan",
+    "label": "aggregate"
+  },
+  {
+    "text": "add up all values in amount",
+    "label": "aggregate"
+  },
+  {
+    "text": "average revenue",
+    "label": "aggregate"
+  },
+  {
+    "text": "mean price by segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "avg amount per customer",
+    "label": "aggregate"
+  },
+  {
+    "text": "average revenue by region",
+    "label": "aggregate"
+  },
+  {
+    "text": "mean value of transactions",
+    "label": "aggregate"
+  },
+  {
+    "text": "average price per product",
+    "label": "aggregate"
+  },
+  {
+    "text": "avg revenue by plan",
+    "label": "aggregate"
+  },
+  {
+    "text": "mean amount by status",
+    "label": "aggregate"
+  },
+  {
+    "text": "average transaction value",
+    "label": "aggregate"
+  },
+  {
+    "text": "what's the average revenue per segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "minimum price",
+    "label": "aggregate"
+  },
+  {
+    "text": "maximum revenue",
+    "label": "aggregate"
+  },
+  {
+    "text": "lowest amount by segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "highest revenue by region",
+    "label": "aggregate"
+  },
+  {
+    "text": "min value in amount",
+    "label": "aggregate"
+  },
+  {
+    "text": "max price per category",
+    "label": "aggregate"
+  },
+  {
+    "text": "smallest transaction",
+    "label": "aggregate"
+  },
+  {
+    "text": "largest order value",
+    "label": "aggregate"
+  },
+  {
+    "text": "minimum revenue per plan",
+    "label": "aggregate"
+  },
+  {
+    "text": "maximum amount by customer",
+    "label": "aggregate"
+  },
+  {
+    "text": "count msisdns by segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "average revenue per region",
+    "label": "aggregate"
+  },
+  {
+    "text": "sum of sales by category",
+    "label": "aggregate"
+  },
+  {
+    "text": "total amount for each plan",
+    "label": "aggregate"
+  },
+  {
+    "text": "count orders grouped by status",
+    "label": "aggregate"
+  },
+  {
+    "text": "mean revenue per customer_id",
+    "label": "aggregate"
+  },
+  {
+    "text": "max price by product",
+    "label": "aggregate"
+  },
+  {
+    "text": "min amount per segment",
+    "label": "aggregate"
+  },
+  {
+    "text": "which column has the most duplicates",
+    "label": "column_comparison"
+  },
+  {
+    "text": "what column has most duplicate values",
+    "label": "column_comparison"
+  },
+  {
+    "text": "compare duplicate rates across columns",
+    "label": "column_comparison"
+  },
+  {
+    "text": "which column is most duplicated",
+    "label": "column_comparison"
+  },
+  {
+    "text": "what column has highest duplication",
+    "label": "column_comparison"
+  },
+  {
+    "text": "compare columns for duplicates",
+    "label": "column_comparison"
+  },
+  {
+    "text": "which column has maximum duplicates",
+    "label": "column_comparison"
+  },
+  {
+    "text": "what's the most duplicated column",
+    "label": "column_comparison"
+  },
+  {
+    "text": "column with most repeated values",
+    "label": "column_comparison"
+  },
+  {
+    "text": "compare duplication in all columns",
+    "label": "column_comparison"
+  },
+  {
+    "text": "which column has most repeating values",
+    "label": "column_comparison"
+  },
+  {
+    "text": "what column is highly duplicated",
+    "label": "column_comparison"
+  },
+  {
+    "text": "compare all columns for duplicate count",
+    "label": "column_comparison"
+  },
+  {
+    "text": "find the column with maximum duplication",
+    "label": "column_comparison"
+  },
+  {
+    "text": "which column has highest duplicate rate",
+    "label": "column_comparison"
+  },
+  {
+    "text": "show me column comparison for duplicates",
+    "label": "column_comparison"
+  },
+  {
+    "text": "rank columns by duplicate count",
+    "label": "column_comparison"
+  },
+  {
+    "text": "what's the most repeated column",
+    "label": "column_comparison"
+  },
+  {
+    "text": "column duplicate analysis",
+    "label": "column_comparison"
+  },
+  {
+    "text": "compare duplicate percentages across columns",
+    "label": "column_comparison"
+  },
+  {
+    "text": "tell me which column has most duplicates",
+    "label": "column_comparison"
+  },
+  {
+    "text": "I want to compare duplicate rates in columns",
+    "label": "column_comparison"
+  },
+  {
+    "text": "show me which columns have the most duplication",
+    "label": "column_comparison"
+  },
+  {
+    "text": "compare columns to find most duplicated one",
+    "label": "column_comparison"
+  },
+  {
+    "text": "which column should I focus on for duplicates",
+    "label": "column_comparison"
+  },
+  {
+    "text": "how many files",
+    "label": "metadata"
+  },
+  {
+    "text": "how many files do we have",
+    "label": "metadata"
+  },
+  {
+    "text": "count of files",
+    "label": "metadata"
+  },
+  {
+    "text": "total files uploaded",
+    "label": "metadata"
+  },
+  {
+    "text": "number of datasets",
+    "label": "metadata"
+  },
+  {
+    "text": "how many files are there",
+    "label": "metadata"
+  },
+  {
+    "text": "count files",
+    "label": "metadata"
+  },
+  {
+    "text": "total number of files",
+    "label": "metadata"
+  },
+  {
+    "text": "how many datasets do we have",
+    "label": "metadata"
+  },
+  {
+    "text": "what's the file count",
+    "label": "metadata"
+  },
+  {
+    "text": "list all files",
+    "label": "metadata"
+  },
+  {
+    "text": "show all files",
+    "label": "metadata"
+  },
+  {
+    "text": "display all files",
+    "label": "metadata"
+  },
+  {
+    "text": "what files do we have",
+    "label": "metadata"
+  },
+  {
+    "text": "show me all datasets",
+    "label": "metadata"
+  },
+  {
+    "text": "list uploaded files",
+    "label": "metadata"
+  },
+  {
+    "text": "display all datasets",
+    "label": "metadata"
+  },
+  {
+    "text": "what files are available",
+    "label": "metadata"
+  },
+  {
+    "text": "show files uploaded",
+    "label": "metadata"
+  },
+  {
+    "text": "list all my files",
+    "label": "metadata"
+  },
+  {
+    "text": "overview of data",
+    "label": "metadata"
+  },
+  {
+    "text": "data summary",
+    "label": "metadata"
+  },
+  {
+    "text": "show me an overview",
+    "label": "metadata"
+  },
+  {
+    "text": "what data do we have",
+    "label": "metadata"
+  },
+  {
+    "text": "give me an overview of files",
+    "label": "metadata"
+  },
+  {
+    "text": "system overview",
+    "label": "metadata"
+  },
+  {
+    "text": "show dataset overview",
+    "label": "metadata"
+  },
+  {
+    "text": "what's in the database",
+    "label": "metadata"
+  },
+  {
+    "text": "overview of uploaded files",
+    "label": "metadata"
+  },
+  {
+    "text": "summarize available data",
+    "label": "metadata"
+  },
+  {
+    "text": "files uploaded",
+    "label": "metadata"
+  },
+  {
+    "text": "files available",
+    "label": "metadata"
+  },
+  {
+    "text": "what files exist",
+    "label": "metadata"
+  },
+  {
+    "text": "show file list",
+    "label": "metadata"
+  },
+  {
+    "text": "display files",
+    "label": "metadata"
+  },
+  {
+    "text": "what trends do you see in the data",
+    "label": "rag"
+  },
+  {
+    "text": "summarize the customer segments",
+    "label": "rag"
+  },
+  {
+    "text": "what insights can you provide",
+    "label": "rag"
+  },
+  {
+    "text": "analyze the revenue patterns",
+    "label": "rag"
+  },
+  {
+    "text": "what are the key findings",
+    "label": "rag"
+  },
+  {
+    "text": "explain the data distribution",
+    "label": "rag"
+  },
+  {
+    "text": "what patterns exist in the data",
+    "label": "rag"
+  },
+  {
+    "text": "provide insights about customer behavior",
+    "label": "rag"
+  },
+  {
+    "text": "what correlations do you notice",
+    "label": "rag"
+  },
+  {
+    "text": "analyze sales trends",
+    "label": "rag"
+  },
+  {
+    "text": "describe the dataset",
+    "label": "rag"
+  },
+  {
+    "text": "what does this data tell us",
+    "label": "rag"
+  },
+  {
+    "text": "explain the customer demographics",
+    "label": "rag"
+  },
+  {
+    "text": "what is the data quality like",
+    "label": "rag"
+  },
+  {
+    "text": "describe the revenue distribution",
+    "label": "rag"
+  },
+  {
+    "text": "what can we learn from this data",
+    "label": "rag"
+  },
+  {
+    "text": "tell me about the customer base",
+    "label": "rag"
+  },
+  {
+    "text": "explain the market segments",
+    "label": "rag"
+  },
+  {
+    "text": "what does the data show about sales",
+    "label": "rag"
+  },
+  {
+    "text": "describe patterns in customer behavior",
+    "label": "rag"
+  },
+  {
+    "text": "why are revenues declining",
+    "label": "rag"
+  },
+  {
+    "text": "what caused the spike in orders",
+    "label": "rag"
+  },
+  {
+    "text": "how can we improve retention",
+    "label": "rag"
+  },
+  {
+    "text": "what drives customer churn",
+    "label": "rag"
+  },
+  {
+    "text": "why do certain segments perform better",
+    "label": "rag"
+  },
+  {
+    "text": "what factors affect revenue",
+    "label": "rag"
+  },
+  {
+    "text": "how does region impact sales",
+    "label": "rag"
+  },
+  {
+    "text": "what influences customer behavior",
+    "label": "rag"
+  },
+  {
+    "text": "why are there so many duplicates",
+    "label": "rag"
+  },
+  {
+    "text": "what's the relationship between price and sales",
+    "label": "rag"
+  },
+  {
+    "text": "compare revenue across segments",
+    "label": "rag"
+  },
+  {
+    "text": "how do regions differ in performance",
+    "label": "rag"
+  },
+  {
+    "text": "what's the difference between plans",
+    "label": "rag"
+  },
+  {
+    "text": "compare customer behavior by segment",
+    "label": "rag"
+  },
+  {
+    "text": "how do products compare in sales",
+    "label": "rag"
+  },
+  {
+    "text": "what's better: plan A or plan B",
+    "label": "rag"
+  },
+  {
+    "text": "compare performance over time",
+    "label": "rag"
+  },
+  {
+    "text": "how do segments differ",
+    "label": "rag"
+  },
+  {
+    "text": "compare customer satisfaction by region",
+    "label": "rag"
+  },
+  {
+    "text": "what are the differences between categories",
+    "label": "rag"
+  },
+  {
+    "text": "tell me something interesting about the data",
+    "label": "rag"
+  },
+  {
+    "text": "what should I know about this dataset",
+    "label": "rag"
+  },
+  {
+    "text": "give me insights",
+    "label": "rag"
+  },
+  {
+    "text": "what's important here",
+    "label": "rag"
+  },
+  {
+    "text": "help me understand the data",
+    "label": "rag"
+  },
+  {
+    "text": "what stands out",
+    "label": "rag"
+  },
+  {
+    "text": "any recommendations",
+    "label": "rag"
+  },
+  {
+    "text": "what should I focus on",
+    "label": "rag"
+  },
+  {
+    "text": "guide me through the data",
+    "label": "rag"
+  },
+  {
+    "text": "what's noteworthy",
+    "label": "rag"
+  }
+]

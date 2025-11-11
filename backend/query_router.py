@@ -1,6 +1,8 @@
 """
 Intelligent query router that automatically detects query intent
 and routes to appropriate endpoint (RAG vs Analytics)
+
+Now supports ML-based intent classification with regex fallback
 """
 import re
 from typing import Dict, Any, Optional, List
@@ -8,14 +10,43 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Try to import ML-based classifier
+try:
+    from intent_classifier import get_classifier, IntentClassifier
+    ML_CLASSIFIER_AVAILABLE = True
+except ImportError:
+    ML_CLASSIFIER_AVAILABLE = False
+    logger.warning("ML intent classifier not available, using regex only")
+
 
 class QueryRouter:
     """
     Smart query router that detects intent and routes to appropriate backend
     """
 
-    def __init__(self):
-        # Pattern definitions for different query types
+    def __init__(self, use_ml: bool = True):
+        """
+        Initialize the query router
+
+        Args:
+            use_ml: Whether to use ML-based classification (default: True)
+        """
+        self.use_ml = use_ml and ML_CLASSIFIER_AVAILABLE
+        self.ml_classifier = None
+
+        # Initialize ML classifier if available and enabled
+        if self.use_ml:
+            try:
+                self.ml_classifier = get_classifier()
+                if self.ml_classifier.is_available():
+                    logger.info("✅ ML intent classifier initialized successfully")
+                else:
+                    logger.info("ML classifier initialized, but no trained model found. Using regex fallback.")
+            except Exception as e:
+                logger.error(f"Failed to initialize ML classifier: {e}")
+                self.ml_classifier = None
+
+        # Pattern definitions for different query types (used as fallback or when ML disabled)
         self.search_patterns = [
             r'\b(find|search\s+for|look\s+for|locate)\s+.*\s+(\w+)\s*[:\s]+\s*([^\s]+)',
             r'\b(which|what)\s+files?\s+(have|has|contain|contains)\s+.*\s+(\w+)\s*[:\s]+\s*([^\s]+)',
@@ -81,16 +112,48 @@ class QueryRouter:
 
     def detect_intent(self, question: str) -> Dict[str, Any]:
         """
-        Detect the intent of the query
+        Detect the intent of the query using ML model (preferred) or regex (fallback)
+
         Returns: {
             'type': 'search' | 'column_comparison' | 'duplicate' | 'aggregate' | 'unique' | 'metadata' | 'rag',
             'column': extracted column name or None,
             'value': for search queries,
             'operation': for aggregate queries,
-            'group_by': for grouped aggregations
+            'group_by': for grouped aggregations,
+            'confidence': confidence score,
+            'method': 'ml' or 'regex'
         }
         """
         question_lower = question.lower()
+
+        # Try ML classifier first if available
+        if self.ml_classifier and self.ml_classifier.is_available():
+            try:
+                prediction = self.ml_classifier.predict(question)
+                intent = prediction['intent']
+                confidence = prediction.get('confidence', 0.5)
+                method = prediction.get('method', 'ml')
+
+                logger.info(f"Intent detected: {intent} (confidence: {confidence:.2f}, method: {method})")
+
+                # Extract parameters based on detected intent
+                params = self.ml_classifier.extract_parameters(question, intent)
+
+                # Build result
+                result = {
+                    'type': intent,
+                    'confidence': confidence,
+                    'method': method,
+                    **params
+                }
+
+                return result
+
+            except Exception as e:
+                logger.error(f"ML prediction failed, falling back to regex: {e}")
+
+        # Fall back to regex-based detection
+        logger.info("Using regex-based intent detection")
 
         # Check for search queries FIRST (before metadata)
         search_result = self._detect_search(question_lower, question)
@@ -504,6 +567,27 @@ class QueryRouter:
             response_parts.append(f"\nAccess URL: `http://localhost:8000{csv_download}`")
 
         return "\n".join(response_parts)
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """
+        Get information about the current classification method
+
+        Returns:
+            Dictionary with model information
+        """
+        if self.ml_classifier:
+            return {
+                'ml_enabled': True,
+                'ml_available': self.ml_classifier.is_available(),
+                **self.ml_classifier.get_model_info()
+            }
+        else:
+            return {
+                'ml_enabled': False,
+                'ml_available': False,
+                'method': 'regex_only',
+                'message': 'Using regex-based classification only'
+            }
 
 
 # Global router instance
