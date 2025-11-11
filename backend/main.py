@@ -570,6 +570,38 @@ async def query_data(
                 }] if request.return_sources else None
             )
 
+        elif intent['type'] == 'column_comparison':
+            # Call analytics column comparison endpoint
+            from backend.analytics_routes import compare_duplicates_across_columns
+
+            logger.info("Comparing duplicates across all columns")
+
+            analytics_result = await compare_duplicates_across_columns(
+                current_user=current_user,
+                db=db
+            )
+
+            answer = query_router.format_analytics_response(
+                'column_comparison',
+                analytics_result,
+                question
+            )
+
+            return QueryResponse(
+                success=True,
+                question=question,
+                answer=answer,
+                sources=[{
+                    "content": f"Analytics: Column duplicate comparison across {analytics_result.get('total_columns_analyzed', 0)} columns",
+                    "metadata": {
+                        "query_type": "analytics",
+                        "intent": "column_comparison",
+                        "most_duplicated_column": analytics_result.get('most_duplicated_column'),
+                        "total_columns": analytics_result.get('total_columns_analyzed', 0)
+                    }
+                }] if request.return_sources else None
+            )
+
         else:
             # Use RAG for semantic queries
             logger.info("Using RAG for semantic query")

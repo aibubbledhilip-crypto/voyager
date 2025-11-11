@@ -23,6 +23,15 @@ class QueryRouter:
             r'\bfiles?\s+(?:with|having|containing)\s+(?:the\s+)?(\w+)\s+([^\s]+)',
         ]
 
+        self.column_comparison_patterns = [
+            r'\b(which|what)\s+column.*(most|highest|largest|maximum).*duplicat',
+            r'\bcompare.*duplicat.*column',
+            r'\b(which|what)\s+column.*(most|highly|mostly)\s+(repeat|duplicat)',
+            r'\bcolumn.*comparison.*duplicat',
+            r'\bmost\s+duplicat.*column',
+            r'\bcolumn.*(has|have|with).*most.*duplicat'
+        ]
+
         self.duplicate_patterns = [
             r'\b(duplicate|repeated|repeat|occurring|appears?\s+multiple)\b',
             r'\b(how\s+many\s+times|occurrence|count.*same)\b',
@@ -64,7 +73,7 @@ class QueryRouter:
         """
         Detect the intent of the query
         Returns: {
-            'type': 'search' | 'duplicate' | 'aggregate' | 'unique' | 'metadata' | 'rag',
+            'type': 'search' | 'column_comparison' | 'duplicate' | 'aggregate' | 'unique' | 'metadata' | 'rag',
             'column': extracted column name or None,
             'value': for search queries,
             'operation': for aggregate queries,
@@ -82,6 +91,13 @@ class QueryRouter:
         if self._matches_patterns(question_lower, self.metadata_patterns):
             return {
                 'type': 'metadata',
+                'confidence': 'high'
+            }
+
+        # Check for column comparison (before regular duplicate detection)
+        if self._matches_patterns(question_lower, self.column_comparison_patterns):
+            return {
+                'type': 'column_comparison',
                 'confidence': 'high'
             }
 
@@ -231,6 +247,8 @@ class QueryRouter:
             return self._format_metadata_response(analytics_result)
         elif query_type == 'search':
             return self._format_search_response(analytics_result)
+        elif query_type == 'column_comparison':
+            return self._format_column_comparison_response(analytics_result)
 
         return "Analysis completed, but I'm not sure how to present the results."
 
@@ -414,6 +432,58 @@ class QueryRouter:
         if csv_download:
             response_parts.append(f"\n\n📥 **Complete Report Available**")
             response_parts.append(f"Download the full CSV report with all {total_matches} matching row(s):")
+            response_parts.append(f"🔗 `{csv_download}`")
+            response_parts.append(f"\nAccess URL: `http://localhost:8000{csv_download}`")
+
+        return "\n".join(response_parts)
+
+    def _format_column_comparison_response(self, result: Dict[str, Any]) -> str:
+        """Format column comparison results as natural language"""
+        total_columns = result.get('total_columns_analyzed', 0)
+        total_files = result.get('total_files_analyzed', 0)
+        columns = result.get('columns', [])
+        most_duplicated = result.get('most_duplicated_column')
+        csv_download = result.get('csv_download_url')
+
+        if total_columns == 0:
+            return "📊 **No columns found** in your uploaded files."
+
+        response_parts = [
+            f"📊 **Column Duplicate Comparison**\n",
+            f"Analyzed **{total_columns} column(s)** across **{total_files} file(s)**.\n"
+        ]
+
+        if most_duplicated:
+            response_parts.append(f"🏆 **Most Duplicated Column:** `{most_duplicated}`\n")
+
+        response_parts.append("\n**Ranking by Duplicate Count:**\n")
+
+        for i, col_stat in enumerate(columns[:10], 1):  # Show top 10
+            column = col_stat['column']
+            duplicate_count = col_stat['duplicate_values']
+            duplicate_pct = col_stat['duplicate_percentage']
+            files_with_col = col_stat['files_with_column']
+
+            if i == 1:
+                response_parts.append(f"\n{i}. 🥇 **{column}**")
+            elif i == 2:
+                response_parts.append(f"\n{i}. 🥈 **{column}**")
+            elif i == 3:
+                response_parts.append(f"\n{i}. 🥉 **{column}**")
+            else:
+                response_parts.append(f"\n{i}. **{column}**")
+
+            response_parts.append(f"   - Duplicate values: **{duplicate_count}**")
+            response_parts.append(f"   - Duplicate rate: **{duplicate_pct}%**")
+            response_parts.append(f"   - Found in: {files_with_col} file(s)")
+
+        if total_columns > 10:
+            response_parts.append(f"\n\n_Showing top 10 of {total_columns} columns_")
+
+        # Add CSV export information
+        if csv_download:
+            response_parts.append(f"\n\n📥 **Complete Report Available**")
+            response_parts.append(f"Download the full CSV report with all {total_columns} columns:")
             response_parts.append(f"🔗 `{csv_download}`")
             response_parts.append(f"\nAccess URL: `http://localhost:8000{csv_download}`")
 

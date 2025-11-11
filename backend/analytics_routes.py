@@ -478,6 +478,144 @@ async def search_value(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/compare-duplicates")
+async def compare_duplicates_across_columns(
+    current_user: Optional[User] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Compare duplicate counts across all columns to find which column has the most duplicates
+    Returns: ranked list of columns by duplicate count
+    """
+    try:
+        # Get all uploaded files
+        query = db.query(UploadedFile).filter(UploadedFile.processing_status == 'completed')
+
+        if current_user:
+            query = query.filter(UploadedFile.user_id == current_user.id)
+
+        files = query.all()
+
+        if not files:
+            return {
+                "success": False,
+                "error": "No files uploaded yet"
+            }
+
+        # First, get all unique column names
+        all_columns = set()
+        for file_record in files:
+            try:
+                file_path = Path(file_record.file_path)
+                if not file_path.exists():
+                    continue
+
+                if file_record.file_type == 'csv':
+                    df = pd.read_csv(file_path, nrows=1)
+                elif file_record.file_type in ['xlsx', 'xls']:
+                    df = pd.read_excel(file_path, nrows=1)
+                else:
+                    continue
+
+                all_columns.update(df.columns)
+
+            except Exception as e:
+                logger.error(f"Error reading {file_record.filename}: {str(e)}")
+                continue
+
+        if not all_columns:
+            return {
+                "success": False,
+                "error": "No columns found in uploaded files"
+            }
+
+        logger.info(f"Found {len(all_columns)} unique columns across {len(files)} files")
+
+        # Now check duplicates for each column
+        column_duplicate_stats = []
+
+        for column in all_columns:
+            try:
+                all_values = []
+                files_with_column = 0
+
+                for file_record in files:
+                    try:
+                        file_path = Path(file_record.file_path)
+                        if not file_path.exists():
+                            continue
+
+                        if file_record.file_type == 'csv':
+                            df = pd.read_csv(file_path)
+                        elif file_record.file_type in ['xlsx', 'xls']:
+                            df = pd.read_excel(file_path)
+                        else:
+                            continue
+
+                        if column not in df.columns:
+                            continue
+
+                        files_with_column += 1
+                        all_values.extend(df[column].dropna().tolist())
+
+                    except Exception as e:
+                        logger.error(f"Error reading {file_record.filename} for column {column}: {str(e)}")
+                        continue
+
+                if not all_values:
+                    continue
+
+                # Count duplicates
+                value_counts = pd.Series(all_values).value_counts()
+                duplicates = value_counts[value_counts > 1]
+                total_duplicate_count = len(duplicates)
+                total_duplicate_occurrences = duplicates.sum() - total_duplicate_count  # Subtract original occurrences
+
+                column_duplicate_stats.append({
+                    'column': column,
+                    'total_values': len(all_values),
+                    'unique_values': len(value_counts),
+                    'duplicate_values': total_duplicate_count,
+                    'duplicate_occurrences': int(total_duplicate_occurrences),
+                    'files_with_column': files_with_column,
+                    'duplicate_percentage': round((total_duplicate_count / len(value_counts) * 100), 2) if len(value_counts) > 0 else 0
+                })
+
+            except Exception as e:
+                logger.error(f"Error analyzing duplicates for column {column}: {str(e)}")
+                continue
+
+        # Sort by duplicate count (descending)
+        column_duplicate_stats.sort(key=lambda x: x['duplicate_values'], reverse=True)
+
+        # Generate CSV export
+        csv_filename = None
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            csv_filename = f"column_duplicate_comparison_{timestamp}_{uuid.uuid4().hex[:8]}.csv"
+            csv_path = EXPORTS_DIR / csv_filename
+
+            export_df = pd.DataFrame(column_duplicate_stats)
+            export_df.to_csv(csv_path, index=False)
+            logger.info(f"Generated CSV export: {csv_filename}")
+        except Exception as e:
+            logger.error(f"Error generating CSV export: {str(e)}")
+
+        return {
+            "success": True,
+            "total_columns_analyzed": len(column_duplicate_stats),
+            "total_files_analyzed": len(files),
+            "columns": column_duplicate_stats,
+            "most_duplicated_column": column_duplicate_stats[0]['column'] if column_duplicate_stats else None,
+            "csv_export": csv_filename if csv_filename else None,
+            "csv_download_url": f"/download/{csv_filename}" if csv_filename else None
+        }
+
+    except Exception as e:
+        logger.error(f"Error comparing duplicates across columns: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/columns")
 async def list_all_columns(
     current_user: Optional[User] = Depends(get_current_user),
