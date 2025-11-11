@@ -150,7 +150,7 @@ Answer:"""
             chain_type="stuff",
             retriever=self.vectorstore.as_retriever(
                 search_type="similarity",
-                search_kwargs={"k": 20}  # Retrieve top 20 chunks (balanced for token limits and file coverage)
+                search_kwargs={"k": 12}  # Retrieve top 12 chunks (safe for 30k token limit)
             ),
             chain_type_kwargs={"prompt": prompt},
             return_source_documents=True
