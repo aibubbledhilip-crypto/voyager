@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>voyager - Application Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
+        }
+
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #667eea;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #718096;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .module-card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .module-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
+        }
+
+        .module-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .module-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+
+        .module-description {
+            font-size: 15px;
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .module-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-active {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-admin {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .badge-coming {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .module-features {
+            list-style: none;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .module-features li {
+            font-size: 13px;
+            color: #4a5568;
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .module-features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #48bb78;
+            font-weight: bold;
+        }
+
+        .powered-by {
+            text-align: center;
+            padding: 40px 20px;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+
+        .powered-by img {
+            height: 32px;
+            margin-top: 12px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-brand">
+            🚀 voyager
+        </div>
+        <div class="navbar-user">
+            <div class="user-info">
+                <div class="user-name" id="userName">User</div>
+                <div class="user-role" id="userRole">Member</div>
+            </div>
+            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🚀 voyager</h1>
+            <p>Enterprise Application Platform</p>
+        </div>
+
+        <div class="modules-grid">
+            <!-- Data Analysis Module -->
+            <a href="http://localhost:8501" target="_blank" class="module-card">
+                <div class="module-icon">📊</div>
+                <div class="module-title">Intelligent RAG Data Analysis</div>
+                <div class="module-description">
+                    AI-powered data analysis using Retrieval Augmented Generation. Upload files and get instant insights.
+                </div>
+                <span class="module-badge badge-active">Active</span>
+                <ul class="module-features">
+                    <li>Upload 50+ CSV/Excel files</li>
+                    <li>Natural language queries</li>
+                    <li>AI-powered insights</li>
+                    <li>Interactive visualizations</li>
+                </ul>
+            </a>
+
+            <!-- Admin Dashboard -->
+            <a href="/static/admin.html" class="module-card" id="adminModule" style="display: none;">
+                <div class="module-icon">⚙️</div>
+                <div class="module-title">Admin Dashboard</div>
+                <div class="module-description">
+                    Complete user management, system monitoring, and administrative controls.
+                </div>
+                <span class="module-badge badge-admin">Admin Only</span>
+                <ul class="module-features">
+                    <li>User management (CRUD)</li>
+                    <li>System statistics</li>
+                    <li>Access control</li>
+                    <li>Password management</li>
+                </ul>
+            </a>
+
+            <!-- Coming Soon Module 1 -->
+            <div class="module-card" style="opacity: 0.6; cursor: not-allowed;">
+                <div class="module-icon">📈</div>
+                <div class="module-title">Business Intelligence</div>
+                <div class="module-description">
+                    Advanced analytics and reporting dashboards for business insights.
+                </div>
+                <span class="module-badge badge-coming">Coming Soon</span>
+                <ul class="module-features">
+                    <li>Interactive dashboards</li>
+                    <li>Custom reports</li>
+                    <li>KPI tracking</li>
+                    <li>Export capabilities</li>
+                </ul>
+            </div>
+
+            <!-- Coming Soon Module 2 -->
+            <div class="module-card" style="opacity: 0.6; cursor: not-allowed;">
+                <div class="module-icon">🤖</div>
+                <div class="module-title">AI Assistant</div>
+                <div class="module-description">
+                    Conversational AI assistant for workflow automation and support.
+                </div>
+                <span class="module-badge badge-coming">Coming Soon</span>
+                <ul class="module-features">
+                    <li>Natural conversations</li>
+                    <li>Task automation</li>
+                    <li>Knowledge base</li>
+                    <li>Multi-language support</li>
+                </ul>
+            </div>
+
+            <!-- Coming Soon Module 3 -->
+            <div class="module-card" style="opacity: 0.6; cursor: not-allowed;">
+                <div class="module-icon">📝</div>
+                <div class="module-title">Document Processing</div>
+                <div class="module-description">
+                    Automated document analysis, extraction, and classification.
+                </div>
+                <span class="module-badge badge-coming">Coming Soon</span>
+                <ul class="module-features">
+                    <li>OCR & extraction</li>
+                    <li>Auto-classification</li>
+                    <li>Entity recognition</li>
+                    <li>Batch processing</li>
+                </ul>
+            </div>
+
+            <!-- Coming Soon Module 4 -->
+            <div class="module-card" style="opacity: 0.6; cursor: not-allowed;">
+                <div class="module-icon">🔍</div>
+                <div class="module-title">Search & Discovery</div>
+                <div class="module-description">
+                    Powerful enterprise search across all your data sources.
+                </div>
+                <span class="module-badge badge-coming">Coming Soon</span>
+                <ul class="module-features">
+                    <li>Unified search</li>
+                    <li>Smart filters</li>
+                    <li>Relevance ranking</li>
+                    <li>Saved searches</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="powered-by">
+            <div>Powered by</div>
+            <img src="https://www.prodapt.com/wp-content/uploads/Logo-for-website.svg" alt="Prodapt">
+        </div>
+    </div>
+
+    <script>
+        // Check authentication
+        window.addEventListener('load', async () => {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    document.getElementById('userName').textContent = userData.username;
+
+                    if (userData.is_admin) {
+                        document.getElementById('userRole').textContent = 'Administrator';
+                        document.getElementById('adminModule').style.display = 'block';
+                    } else {
+                        document.getElementById('userRole').textContent = 'Member';
+                    }
+                } else {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/static/login.html';
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = '/static/login.html';
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+            window.location.href = '/static/login.html';
+        }
+    </script>
+</body>
+</html>

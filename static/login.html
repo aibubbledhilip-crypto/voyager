@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Voyager Data Analysis</title>
+    <title>Login - voyager Platform</title>
     <style>
         * {
             margin: 0;
@@ -211,7 +211,14 @@
     <div class="login-container">
         <div class="logo">
             <h1>🚀 voyager</h1>
-            <p>Intelligent Data Analysis Platform</p>
+            <p>Enterprise Application Platform</p>
+        </div>
+
+        <div class="info-box">
+            <strong>Access Multiple Applications:</strong>
+            • Intelligent RAG Data Analysis<br>
+            • Admin Dashboard<br>
+            • And more modules coming soon...
         </div>
 
         <div class="info-box">
@@ -297,13 +304,9 @@
 
                     showAlert('Login successful! Redirecting...', 'success');
 
-                    // Redirect based on user role
+                    // Redirect to dashboard
                     setTimeout(() => {
-                        if (userData.is_admin) {
-                            window.location.href = '/static/admin.html';
-                        } else {
-                            window.location.href = '/static/index.html';
-                        }
+                        window.location.href = '/static/dashboard.html';
                     }, 1000);
                 } else {
                     showAlert(data.detail || 'Login failed. Please check your credentials.');
@@ -330,13 +333,8 @@
                     });
 
                     if (response.ok) {
-                        const userData = await response.json();
-                        // Already logged in, redirect
-                        if (userData.is_admin) {
-                            window.location.href = '/static/admin.html';
-                        } else {
-                            window.location.href = '/static/index.html';
-                        }
+                        // Already logged in, redirect to dashboard
+                        window.location.href = '/static/dashboard.html';
                     }
                 } catch (error) {
                     // Token invalid, continue with login
