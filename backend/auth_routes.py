@@ -255,3 +255,159 @@ async def toggle_user_active(
     db.refresh(user)
 
     return {"success": True, "is_active": user.is_active}
+
+
+class AdminUserUpdate(BaseModel):
+    """Admin can update more fields than regular users"""
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user_admin(
+    user_id: int,
+    user_update: AdminUserUpdate,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update user information (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent admin from demoting themselves
+    if user.id == current_user.id and user_update.is_admin is False:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot remove your own admin privileges"
+        )
+
+    # Update fields
+    if user_update.full_name is not None:
+        user.full_name = user_update.full_name
+    if user_update.email is not None:
+        # Check if email is already taken
+        existing = db.query(User).filter(
+            User.email == user_update.email,
+            User.id != user_id
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="Email already in use"
+            )
+        user.email = user_update.email
+    if user_update.password is not None:
+        user.hashed_password = get_password_hash(user_update.password)
+    if user_update.is_active is not None:
+        user.is_active = user_update.is_active
+    if user_update.is_admin is not None:
+        user.is_admin = user_update.is_admin
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/users/{user_id}/reset-password")
+async def reset_user_password(
+    user_id: int,
+    new_password: str,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Reset user password (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.hashed_password = get_password_hash(new_password)
+    db.commit()
+
+    return {"success": True, "message": f"Password reset for user {user.username}"}
+
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user_by_id(
+    user_id: int,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get user by ID (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+class UserStatsDetail(BaseModel):
+    user_id: int
+    username: str
+    email: str
+    is_admin: bool
+    is_active: bool
+    total_files: int
+    total_queries: int
+    storage_used: str
+    created_at: str
+
+
+@router.get("/users/{user_id}/stats", response_model=UserStatsDetail)
+async def get_user_stats_admin(
+    user_id: int,
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get detailed statistics for a user (admin only)"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    total_files = db.query(UploadedFile).filter(UploadedFile.user_id == user.id).count()
+    total_queries = db.query(QueryHistory).filter(QueryHistory.user_id == user.id).count()
+
+    files = db.query(UploadedFile).filter(UploadedFile.user_id == user.id).all()
+    storage_bytes = sum(f.file_size or 0 for f in files)
+    storage_mb = storage_bytes / (1024 * 1024)
+
+    return {
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_admin": user.is_admin,
+        "is_active": user.is_active,
+        "total_files": total_files,
+        "total_queries": total_queries,
+        "storage_used": f"{storage_mb:.2f} MB",
+        "created_at": user.created_at.isoformat()
+    }
+
+
+@router.get("/admin/dashboard")
+async def get_admin_dashboard(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get admin dashboard statistics"""
+    total_users = db.query(User).count()
+    active_users = db.query(User).filter(User.is_active == True).count()
+    admin_users = db.query(User).filter(User.is_admin == True).count()
+    total_files = db.query(UploadedFile).count()
+    total_queries = db.query(QueryHistory).count()
+
+    # Calculate total storage
+    files = db.query(UploadedFile).all()
+    storage_bytes = sum(f.file_size or 0 for f in files)
+    storage_mb = storage_bytes / (1024 * 1024)
+
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "admin_users": admin_users,
+        "total_files": total_files,
+        "total_queries": total_queries,
+        "storage_used": f"{storage_mb:.2f} MB"
+    }
