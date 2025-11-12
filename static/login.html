@@ -179,12 +179,38 @@
             font-family: 'Courier New', monospace;
             color: #667eea;
         }
+
+        .powered-by {
+            position: fixed;
+            bottom: 20px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .powered-by-text {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+        }
+
+        .powered-by img {
+            height: 32px;
+            opacity: 0.9;
+            transition: opacity 0.3s ease;
+        }
+
+        .powered-by img:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
         <div class="logo">
-            <h1>🚀 Voyager</h1>
+            <h1>🚀 voyager</h1>
             <p>Intelligent Data Analysis Platform</p>
         </div>
 
@@ -319,5 +345,10 @@
             }
         });
     </script>
+
+    <div class="powered-by">
+        <span class="powered-by-text">Powered by</span>
+        <img src="https://www.prodapt.com/wp-content/uploads/Logo-for-website.svg" alt="Prodapt">
+    </div>
 </body>
 </html>

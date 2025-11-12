@@ -66,8 +66,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Intelligent RAG Data Analysis Tool",
-    description="AI-powered data analysis tool for Excel and CSV files using RAG with authentication and advanced visualizations",
+    title="voyager - Intelligent RAG Data Analysis Tool",
+    description="AI-powered data analysis tool for Excel and CSV files using RAG with authentication and advanced visualizations. Powered by Prodapt.",
     version="2.0.0",
     lifespan=lifespan
 )
