@@ -21,6 +21,7 @@ from backend.auth import get_current_user, init_admin_user
 from backend.auth_routes import router as auth_router
 from backend.viz_routes import router as viz_router
 from backend.analytics_routes import router as analytics_router
+from backend.athena_routes import router as athena_router
 from backend.query_router import query_router
 
 # Configure logging
@@ -90,6 +91,7 @@ if static_path.exists():
 app.include_router(auth_router)
 app.include_router(viz_router)
 app.include_router(analytics_router)
+app.include_router(athena_router)
 
 
 # Pydantic models

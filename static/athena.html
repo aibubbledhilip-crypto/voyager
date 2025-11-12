@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Athena Query Runner - voyager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #2d3748;
+        }
+
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-role {
+            font-size: 12px;
+            color: #667eea;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 24px;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #718096;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            height: fit-content;
+        }
+
+        .sidebar h3 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #2d3748;
+        }
+
+        .config-info {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+
+        .config-info div {
+            margin-bottom: 8px;
+        }
+
+        .config-info strong {
+            color: #4a5568;
+        }
+
+        .config-info code {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+        }
+
+        .database-list {
+            list-style: none;
+        }
+
+        .database-item {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .database-item:hover {
+            background: #f7fafc;
+        }
+
+        .database-item.active {
+            background: #e6f2ff;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .table-list {
+            list-style: none;
+            margin-left: 12px;
+            margin-top: 8px;
+        }
+
+        .table-item {
+            padding: 6px 10px;
+            font-size: 13px;
+            color: #718096;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .table-item:hover {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .query-section {
+            margin-bottom: 24px;
+        }
+
+        .query-section label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #2d3748;
+        }
+
+        .query-editor {
+            width: 100%;
+            min-height: 200px;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.3s;
+        }
+
+        .query-editor:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .query-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .results-section {
+            margin-top: 32px;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .results-header h3 {
+            font-size: 18px;
+            color: #2d3748;
+        }
+
+        .results-info {
+            font-size: 14px;
+            color: #718096;
+        }
+
+        .results-table-container {
+            overflow-x: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .results-table th {
+            background: #f7fafc;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #2d3748;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .results-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .results-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .alert {
+            padding: 14px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+
+        .alert-info {
+            background: #e6f2ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a0aec0;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+        }
+
+        .powered-by {
+            text-align: center;
+            padding: 40px 20px;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+
+        .powered-by img {
+            height: 32px;
+            margin-top: 12px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="/static/dashboard.html" class="navbar-brand">
+            🚀 voyager
+        </a>
+        <div class="navbar-user">
+            <div class="user-info">
+                <div class="user-name" id="userName">User</div>
+                <div class="user-role" id="userRole">Member</div>
+            </div>
+            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🔍 SQL Athena Query Runner</h1>
+            <p>Execute SQL queries against your configured AWS Athena database</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <div class="grid">
+            <div class="sidebar">
+                <h3>⚙️ Configuration</h3>
+                <div class="config-info" id="configInfo">
+                    <div><strong>Loading...</strong></div>
+                </div>
+
+                <h3>📁 Databases</h3>
+                <ul class="database-list" id="databaseList">
+                    <li style="padding: 10px; color: #a0aec0; font-size: 13px;">Loading databases...</li>
+                </ul>
+            </div>
+
+            <div class="main-content">
+                <div class="query-section">
+                    <label for="sqlQuery">SQL Query</label>
+                    <textarea id="sqlQuery" class="query-editor" placeholder="SELECT * FROM your_table LIMIT 10;
+
+-- Enter your SQL query here
+-- Only SELECT queries are allowed for security
+-- Press Ctrl+Enter to execute"></textarea>
+                    <div class="query-actions">
+                        <button class="btn btn-primary" id="executeBtn" onclick="executeQuery()">
+                            ▶️ Execute Query
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearQuery()">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div class="results-section" id="resultsSection" style="display: none;">
+                    <div class="results-header">
+                        <h3>📊 Results</h3>
+                        <div class="results-info" id="resultsInfo"></div>
+                    </div>
+                    <div class="results-table-container">
+                        <table class="results-table" id="resultsTable">
+                            <thead id="resultsHead"></thead>
+                            <tbody id="resultsBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">📝</div>
+                    <div class="empty-state-text">Enter a SQL query above and click Execute to see results</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="powered-by">
+            <div>Powered by</div>
+            <img src="https://www.prodapt.com/wp-content/uploads/Logo-for-website.svg" alt="Prodapt">
+        </div>
+    </div>
+
+    <script>
+        let currentDatabase = null;
+
+        function showAlert(message, type = 'error') {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type} show`;
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        function getAuthHeaders() {
+            const token = localStorage.getItem('access_token');
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        async function checkAuth() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = '/static/login.html';
+                return false;
+            }
+
+            try {
+                const response = await fetch('/auth/me', {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    document.getElementById('userName').textContent = userData.username;
+                    document.getElementById('userRole').textContent = userData.is_admin ? 'Administrator' : 'Member';
+                    return true;
+                } else {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/static/login.html';
+                    return false;
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+                window.location.href = '/static/login.html';
+                return false;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+            window.location.href = '/static/login.html';
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/athena/config', {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const config = await response.json();
+                    currentDatabase = config.database;
+
+                    document.getElementById('configInfo').innerHTML = `
+                        <div><strong>Database:</strong> <code>${config.database}</code></div>
+                        <div><strong>Region:</strong> <code>${config.region}</code></div>
+                        <div><strong>Workgroup:</strong> <code>${config.workgroup || 'primary'}</code></div>
+                    `;
+                } else {
+                    showAlert('Failed to load configuration', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading config:', error);
+                showAlert('Error loading configuration', 'error');
+            }
+        }
+
+        async function loadDatabases() {
+            try {
+                const response = await fetch('/athena/databases', {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const databaseList = document.getElementById('databaseList');
+
+                    if (data.databases && data.databases.length > 0) {
+                        databaseList.innerHTML = '';
+                        data.databases.forEach(db => {
+                            const li = document.createElement('li');
+                            li.className = 'database-item';
+                            if (db === data.current_database) {
+                                li.classList.add('active');
+                            }
+                            li.textContent = db;
+                            li.onclick = () => selectDatabase(db, li);
+                            databaseList.appendChild(li);
+                        });
+                    } else {
+                        databaseList.innerHTML = '<li style="padding: 10px; color: #a0aec0; font-size: 13px;">No databases found</li>';
+                    }
+                } else {
+                    document.getElementById('databaseList').innerHTML = '<li style="padding: 10px; color: #c33; font-size: 13px;">Failed to load databases</li>';
+                }
+            } catch (error) {
+                console.error('Error loading databases:', error);
+                document.getElementById('databaseList').innerHTML = '<li style="padding: 10px; color: #c33; font-size: 13px;">Error loading databases</li>';
+            }
+        }
+
+        async function selectDatabase(database, element) {
+            // Update UI
+            document.querySelectorAll('.database-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            element.classList.add('active');
+            currentDatabase = database;
+
+            // Load tables for this database
+            try {
+                const response = await fetch(`/athena/tables/${database}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Remove existing table list if any
+                    const existingTableList = element.querySelector('.table-list');
+                    if (existingTableList) {
+                        existingTableList.remove();
+                    }
+
+                    if (data.tables && data.tables.length > 0) {
+                        const tableList = document.createElement('ul');
+                        tableList.className = 'table-list';
+
+                        data.tables.forEach(table => {
+                            const tableLi = document.createElement('li');
+                            tableLi.className = 'table-item';
+                            tableLi.textContent = `└ ${table}`;
+                            tableLi.onclick = (e) => {
+                                e.stopPropagation();
+                                insertTableName(database, table);
+                            };
+                            tableList.appendChild(tableLi);
+                        });
+
+                        element.appendChild(tableList);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading tables:', error);
+            }
+        }
+
+        function insertTableName(database, table) {
+            const editor = document.getElementById('sqlQuery');
+            const fullTableName = `${database}.${table}`;
+
+            // Insert at cursor position
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const text = editor.value;
+
+            editor.value = text.substring(0, start) + fullTableName + text.substring(end);
+            editor.focus();
+            editor.setSelectionRange(start + fullTableName.length, start + fullTableName.length);
+        }
+
+        function clearQuery() {
+            document.getElementById('sqlQuery').value = '';
+            document.getElementById('sqlQuery').focus();
+        }
+
+        async function executeQuery() {
+            const query = document.getElementById('sqlQuery').value.trim();
+
+            if (!query) {
+                showAlert('Please enter a SQL query', 'error');
+                return;
+            }
+
+            const executeBtn = document.getElementById('executeBtn');
+            executeBtn.disabled = true;
+            executeBtn.innerHTML = '<span class="loading"></span>Executing...';
+
+            try {
+                const response = await fetch('/athena/query', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        query: query,
+                        database: currentDatabase
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    displayResults(data);
+                    showAlert(`Query executed successfully! ${data.row_count} rows returned in ${data.execution_time}s`, 'success');
+                } else {
+                    showAlert(data.error || data.detail || 'Query execution failed', 'error');
+                    hideResults();
+                }
+            } catch (error) {
+                console.error('Error executing query:', error);
+                showAlert('An error occurred while executing the query', 'error');
+                hideResults();
+            } finally {
+                executeBtn.disabled = false;
+                executeBtn.innerHTML = '▶️ Execute Query';
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+
+            // Update results info
+            const info = `${data.row_count} rows • ${data.data_scanned} scanned • ${data.execution_time}s`;
+            document.getElementById('resultsInfo').textContent = info;
+
+            // Build table header
+            const thead = document.getElementById('resultsHead');
+            thead.innerHTML = '';
+            const headerRow = document.createElement('tr');
+            data.columns.forEach(col => {
+                const th = document.createElement('th');
+                th.textContent = col;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            // Build table body
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+
+            if (data.rows && data.rows.length > 0) {
+                data.rows.forEach(row => {
+                    const tr = document.createElement('tr');
+                    row.forEach(cell => {
+                        const td = document.createElement('td');
+                        td.textContent = cell || '';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+            } else {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = data.columns.length;
+                td.style.textAlign = 'center';
+                td.style.color = '#a0aec0';
+                td.style.padding = '40px';
+                td.textContent = 'No results found';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            }
+        }
+
+        function hideResults() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+
+        // Keyboard shortcut: Ctrl+Enter to execute
+        document.getElementById('sqlQuery').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                executeQuery();
+            }
+        });
+
+        // Initialize
+        window.addEventListener('load', async () => {
+            const authenticated = await checkAuth();
+            if (authenticated) {
+                await loadConfig();
+                await loadDatabases();
+            }
+        });
+    </script>
+</body>
+</html>
