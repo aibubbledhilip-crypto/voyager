@@ -1,5 +1,5 @@
 """
-Streamlit Web GUI for Intelligent RAG Data Analysis Tool
+Streamlit Web GUI for voyager - Intelligent RAG Data Analysis Tool
 
 A beautiful, user-friendly interface for uploading data files and
 getting AI-powered insights from your CSV and Excel files.
@@ -12,13 +12,13 @@ import plotly.graph_objects as go
 from pathlib import Path
 import json
 import time
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # Configuration
 API_BASE_URL = "http://localhost:8000"
 st.set_page_config(
-    page_title="RAG Data Analysis Tool",
-    page_icon="📊",
+    page_title="voyager - Data Analysis",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -40,6 +40,14 @@ st.markdown("""
         color: #666;
         font-size: 1.2rem;
         margin-bottom: 2rem;
+    }
+    .login-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .upload-box {
         border: 2px dashed #667eea;
@@ -68,16 +76,128 @@ st.markdown("""
         background-color: #f3e5f5;
         border-left: 4px solid #9c27b0;
     }
+    .powered-by {
+        text-align: center;
+        margin-top: 2rem;
+        padding: 1rem;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    .powered-by img {
+        height: 32px;
+        margin-top: 0.5rem;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'access_token' not in st.session_state:
+    st.session_state.access_token = None
+if 'user_info' not in st.session_state:
+    st.session_state.user_info = None
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'uploaded_files_info' not in st.session_state:
     st.session_state.uploaded_files_info = []
 if 'data_overview' not in st.session_state:
     st.session_state.data_overview = None
+
+
+def login(username: str, password: str) -> bool:
+    """Login user and get access token"""
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/auth/token",
+            data={"username": username, "password": password}
+        )
+        if response.status_code == 200:
+            data = response.json()
+            st.session_state.access_token = data['access_token']
+
+            # Get user info
+            user_response = requests.get(
+                f"{API_BASE_URL}/auth/me",
+                headers={"Authorization": f"Bearer {data['access_token']}"}
+            )
+            if user_response.status_code == 200:
+                st.session_state.user_info = user_response.json()
+                st.session_state.authenticated = True
+                return True
+        return False
+    except Exception as e:
+        st.error(f"Login error: {str(e)}")
+        return False
+
+
+def logout():
+    """Logout user"""
+    st.session_state.authenticated = False
+    st.session_state.access_token = None
+    st.session_state.user_info = None
+    st.session_state.chat_history = []
+    st.session_state.uploaded_files_info = []
+    st.session_state.data_overview = None
+
+
+def get_auth_headers() -> Dict[str, str]:
+    """Get authorization headers"""
+    if st.session_state.access_token:
+        return {"Authorization": f"Bearer {st.session_state.access_token}"}
+    return {}
+
+
+def show_login_page():
+    """Show login page"""
+    st.markdown('<div class="main-header">🚀 voyager</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sub-header">Intelligent Data Analysis Platform</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        st.subheader("🔐 Sign In")
+        st.markdown("Please login to access the data analysis tool")
+
+        username = st.text_input("Username", key="login_username")
+        password = st.text_input("Password", type="password", key="login_password")
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Sign In", type="primary", use_container_width=True):
+                if username and password:
+                    with st.spinner("Signing in..."):
+                        if login(username, password):
+                            st.success("✅ Login successful!")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("❌ Invalid credentials")
+                else:
+                    st.warning("Please enter username and password")
+
+        with col_b:
+            if st.button("Register", use_container_width=True):
+                st.info("Please visit http://localhost:8000/static/register.html to create an account")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Default credentials info
+        st.info("💡 **Default Admin:** username=`admin`, password=`admin123`")
+
+        # Powered by Prodapt
+        st.markdown("""
+        <div class="powered-by">
+            <div>Powered by</div>
+            <img src="https://www.prodapt.com/wp-content/uploads/Logo-for-website.svg" alt="Prodapt">
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def check_api_health() -> bool:
@@ -93,9 +213,17 @@ def upload_files_to_api(uploaded_files: List) -> List[Dict[str, Any]]:
     """Upload files to the API"""
     files = [('files', (file.name, file.getvalue(), file.type)) for file in uploaded_files]
     try:
-        response = requests.post(f"{API_BASE_URL}/upload-multiple", files=files)
+        response = requests.post(
+            f"{API_BASE_URL}/upload-multiple",
+            files=files,
+            headers=get_auth_headers()
+        )
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            st.error("Session expired. Please login again.")
+            logout()
+            st.rerun()
         else:
             st.error(f"Upload failed: {response.text}")
             return []
@@ -107,9 +235,15 @@ def upload_files_to_api(uploaded_files: List) -> List[Dict[str, Any]]:
 def get_data_overview() -> Dict[str, Any]:
     """Get overview of uploaded data"""
     try:
-        response = requests.get(f"{API_BASE_URL}/overview")
+        response = requests.get(
+            f"{API_BASE_URL}/overview",
+            headers=get_auth_headers()
+        )
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            logout()
+            st.rerun()
         return {}
     except Exception as e:
         st.error(f"Error getting overview: {str(e)}")
@@ -121,10 +255,14 @@ def query_data(question: str, return_sources: bool = True) -> Dict[str, Any]:
     try:
         response = requests.post(
             f"{API_BASE_URL}/query",
-            json={"question": question, "return_sources": return_sources}
+            json={"question": question, "return_sources": return_sources},
+            headers=get_auth_headers()
         )
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            logout()
+            st.rerun()
         else:
             return {"success": False, "error": response.text}
     except Exception as e:
@@ -135,9 +273,16 @@ def get_insights(focus: str = None) -> Dict[str, Any]:
     """Get automatic insights"""
     try:
         params = {"focus": focus} if focus else {}
-        response = requests.post(f"{API_BASE_URL}/insights", params=params)
+        response = requests.post(
+            f"{API_BASE_URL}/insights",
+            params=params,
+            headers=get_auth_headers()
+        )
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 401:
+            logout()
+            st.rerun()
         return {"success": False, "error": response.text}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -146,7 +291,10 @@ def get_insights(focus: str = None) -> Dict[str, Any]:
 def clear_all_data():
     """Clear all uploaded data"""
     try:
-        response = requests.delete(f"{API_BASE_URL}/clear")
+        response = requests.delete(
+            f"{API_BASE_URL}/clear",
+            headers=get_auth_headers()
+        )
         if response.status_code == 200:
             st.session_state.chat_history = []
             st.session_state.uploaded_files_info = []
@@ -160,20 +308,37 @@ def clear_all_data():
 def main():
     """Main application"""
 
+    # Check if user is authenticated
+    if not st.session_state.authenticated:
+        show_login_page()
+        return
+
     # Header
-    st.markdown('<div class="main-header">📊 Intelligent RAG Data Analysis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🚀 voyager</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="sub-header">Upload your CSV/Excel files and get AI-powered insights instantly</div>',
+        '<div class="sub-header">Intelligent RAG Data Analysis Module</div>',
         unsafe_allow_html=True
     )
 
     # Check API health
     if not check_api_health():
-        st.error("⚠️ API server is not running! Please start it with: `python run.py`")
+        st.error("⚠️ API server is not running! Please start it with: `python backend/main.py`")
         st.stop()
 
     # Sidebar
     with st.sidebar:
+        # User info
+        if st.session_state.user_info:
+            st.success(f"👤 {st.session_state.user_info['username']}")
+            if st.session_state.user_info.get('is_admin'):
+                st.caption("🔑 Administrator")
+
+        if st.button("🚪 Logout", use_container_width=True):
+            logout()
+            st.rerun()
+
+        st.divider()
+
         st.header("⚙️ Settings")
 
         # API Status
@@ -195,7 +360,7 @@ def main():
         # About
         st.header("ℹ️ About")
         st.markdown("""
-        This tool uses **Retrieval Augmented Generation (RAG)** to analyze your data.
+        This module uses **Retrieval Augmented Generation (RAG)** to analyze your data.
 
         **Features:**
         - Upload 50+ files at once
