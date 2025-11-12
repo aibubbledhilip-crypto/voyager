@@ -99,6 +99,18 @@ class QueryHistory(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class SystemSettings(Base):
+    """System-wide settings configurable by admins"""
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    value = Column(String(500), nullable=False)
+    description = Column(Text)
+    updated_by = Column(Integer, ForeignKey("users.id"))
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 def get_db():
     """Dependency for database sessions"""
     db = SessionLocal()
@@ -112,6 +124,61 @@ def init_db():
     """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
     print("✅ Database initialized successfully")
+
+    # Initialize default system settings
+    init_default_settings()
+
+
+def init_default_settings():
+    """Initialize default system settings if they don't exist"""
+    db = SessionLocal()
+    try:
+        # Check if settings already exist
+        existing = db.query(SystemSettings).filter_by(key="athena_max_download_rows").first()
+        if not existing:
+            default_settings = [
+                SystemSettings(
+                    key="athena_max_download_rows",
+                    value="100000",
+                    description="Maximum number of rows that can be downloaded from Athena queries"
+                ),
+                SystemSettings(
+                    key="athena_display_rows",
+                    value="1000",
+                    description="Maximum number of rows to display in UI (pagination)"
+                )
+            ]
+            for setting in default_settings:
+                db.add(setting)
+            db.commit()
+            print("✅ Default system settings initialized")
+    except Exception as e:
+        print(f"⚠️  Error initializing settings: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
+def get_system_setting(db, key: str, default: str = None) -> str:
+    """Get a system setting value by key"""
+    setting = db.query(SystemSettings).filter_by(key=key).first()
+    if setting:
+        return setting.value
+    return default
+
+
+def update_system_setting(db, key: str, value: str, user_id: int = None):
+    """Update or create a system setting"""
+    setting = db.query(SystemSettings).filter_by(key=key).first()
+    if setting:
+        setting.value = value
+        setting.updated_by = user_id
+        setting.updated_at = datetime.utcnow()
+    else:
+        setting = SystemSettings(key=key, value=value, updated_by=user_id)
+        db.add(setting)
+    db.commit()
+    return setting
 
 
 if __name__ == "__main__":

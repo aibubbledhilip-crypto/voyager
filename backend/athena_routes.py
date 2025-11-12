@@ -4,12 +4,16 @@ Allows users to execute SQL queries against AWS Athena
 """
 import logging
 import re
+import csv
+import io
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, validator
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from collections import defaultdict
+from pathlib import Path
 import os
 import time
 
@@ -25,7 +29,7 @@ except ImportError:
     BOTO3_AVAILABLE = False
     logger.warning("boto3 not available. Install with: pip install boto3")
 
-from backend.database import get_db, User
+from backend.database import get_db, User, SystemSettings, get_system_setting, update_system_setting
 from backend.auth import get_current_active_user
 
 
@@ -274,6 +278,158 @@ def get_athena_client():
 
     config = get_athena_config()
     return boto3.client('athena', region_name=config['region'])
+
+
+def get_download_limit(db: Session) -> int:
+    """Get the admin-configured download limit"""
+    limit_str = get_system_setting(db, "athena_max_download_rows", "100000")
+    try:
+        return int(limit_str)
+    except ValueError:
+        return 100000  # Default fallback
+
+
+def get_display_limit(db: Session) -> int:
+    """Get the admin-configured display limit"""
+    limit_str = get_system_setting(db, "athena_display_rows", "1000")
+    try:
+        return int(limit_str)
+    except ValueError:
+        return 1000  # Default fallback
+
+
+def execute_athena_query_with_all_results(
+    query: str,
+    database: Optional[str] = None,
+    output_location: Optional[str] = None,
+    max_rows: int = 100000
+) -> Dict[str, Any]:
+    """
+    Execute a query and fetch ALL results using pagination (for downloads)
+
+    Args:
+        query: SQL query to execute
+        database: Database name
+        output_location: S3 location for results
+        max_rows: Maximum number of rows to fetch
+
+    Returns:
+        Dictionary with complete query results
+    """
+    config = get_athena_config()
+    client = get_athena_client()
+
+    db = database or config['database']
+    output = output_location or config['output_location']
+    workgroup = config.get('workgroup', 'primary')
+
+    try:
+        # Start query execution
+        start_time = time.time()
+
+        response = client.start_query_execution(
+            QueryString=query,
+            QueryExecutionContext={'Database': db},
+            ResultConfiguration={'OutputLocation': output},
+            WorkGroup=workgroup
+        )
+
+        query_execution_id = response['QueryExecutionId']
+        logger.info(f"Started Athena query execution for download: {query_execution_id}")
+
+        # Wait for query to complete
+        max_attempts = 60
+        attempt = 0
+
+        while attempt < max_attempts:
+            query_status = client.get_query_execution(
+                QueryExecutionId=query_execution_id
+            )
+
+            status = query_status['QueryExecution']['Status']['State']
+
+            if status in ['SUCCEEDED', 'FAILED', 'CANCELLED']:
+                break
+
+            time.sleep(2)
+            attempt += 1
+
+        execution_time = time.time() - start_time
+
+        if status == 'SUCCEEDED':
+            # Fetch all results with pagination
+            all_rows = []
+            next_token = None
+            columns = None
+            total_fetched = 0
+
+            while total_fetched < max_rows:
+                # Calculate how many rows to fetch in this batch
+                remaining = max_rows - total_fetched
+                batch_size = min(1000, remaining)  # AWS Athena max is 1000 per request
+
+                params = {
+                    'QueryExecutionId': query_execution_id,
+                    'MaxResults': batch_size
+                }
+
+                if next_token:
+                    params['NextToken'] = next_token
+
+                result = client.get_query_results(**params)
+
+                # Extract column names from first batch
+                if columns is None:
+                    columns = [col['Label'] for col in result['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+
+                # Extract rows (skip header row on first batch)
+                rows = result['ResultSet']['Rows']
+                start_idx = 1 if next_token is None else 0  # Skip header only on first batch
+
+                for row in rows[start_idx:]:
+                    row_data = [field.get('VarCharValue', '') for field in row['Data']]
+                    all_rows.append(row_data)
+                    total_fetched += 1
+
+                    if total_fetched >= max_rows:
+                        break
+
+                # Check if there are more results
+                next_token = result.get('NextToken')
+                if not next_token:
+                    break
+
+            # Get statistics
+            stats = query_status['QueryExecution'].get('Statistics', {})
+            data_scanned = stats.get('DataScannedInBytes', 0)
+            data_scanned_mb = data_scanned / (1024 * 1024)
+
+            return {
+                'success': True,
+                'execution_id': query_execution_id,
+                'status': status,
+                'columns': columns,
+                'rows': all_rows,
+                'row_count': len(all_rows),
+                'execution_time': round(execution_time, 2),
+                'data_scanned': f"{data_scanned_mb:.2f} MB"
+            }
+        else:
+            error_message = query_status['QueryExecution']['Status'].get('StateChangeReason', 'Unknown error')
+            return {
+                'success': False,
+                'execution_id': query_execution_id,
+                'status': status,
+                'error': error_message,
+                'execution_time': round(execution_time, 2)
+            }
+
+    except Exception as e:
+        logger.error(f"Athena query error: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
 
 
 def execute_athena_query(
@@ -542,6 +698,189 @@ async def list_tables(
     except Exception as e:
         logger.error(f"Error listing tables: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/query/download")
+async def download_query_results(
+    query_request: QueryRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Execute query and download results as CSV (up to admin-configured limit)
+
+    Returns a CSV file with all results up to the maximum download limit.
+    Default is 100,000 rows, configurable by admin.
+    """
+    if not BOTO3_AVAILABLE:
+        raise HTTPException(
+            status_code=500,
+            detail="AWS SDK (boto3) not installed"
+        )
+
+    # Rate limiting check
+    if not check_rate_limit(current_user.id):
+        logger.warning(f"Rate limit exceeded for user {current_user.username} (ID: {current_user.id})")
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Maximum {MAX_QUERIES_PER_MINUTE} queries per minute allowed."
+        )
+
+    query = query_request.query.strip()
+
+    # Security validation
+    is_safe, error_message = SQLSecurityValidator.validate_query_safety(query)
+    if not is_safe:
+        SQLSecurityValidator.log_query_execution(
+            user_id=current_user.id,
+            username=current_user.username,
+            query=query,
+            success=False,
+            error=f"Security validation failed: {error_message}"
+        )
+        raise HTTPException(status_code=403, detail=error_message)
+
+    # Get admin-configured download limit
+    max_download_rows = get_download_limit(db)
+
+    try:
+        # Execute query with full results
+        result = execute_athena_query_with_all_results(
+            query=query,
+            database=query_request.database,
+            output_location=query_request.output_location,
+            max_rows=max_download_rows
+        )
+
+        # Log execution
+        SQLSecurityValidator.log_query_execution(
+            user_id=current_user.id,
+            username=current_user.username,
+            query=query,
+            success=result.get('success', False),
+            error=result.get('error')
+        )
+
+        if not result['success']:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Query failed'))
+
+        # Generate CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow(result['columns'])
+
+        # Write data rows
+        for row in result['rows']:
+            writer.writerow(row)
+
+        # Create streaming response
+        output.seek(0)
+
+        # Generate filename with timestamp
+        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        filename = f"athena_results_{timestamp}.csv"
+
+        return StreamingResponse(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            media_type="text/csv",
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'X-Row-Count': str(result['row_count']),
+                'X-Execution-Time': str(result['execution_time']),
+                'X-Data-Scanned': result['data_scanned']
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Download error: {str(e)}")
+        SQLSecurityValidator.log_query_execution(
+            user_id=current_user.id,
+            username=current_user.username,
+            query=query,
+            success=False,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/admin/settings")
+async def get_admin_settings(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get Athena settings (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    max_download = get_download_limit(db)
+    display_limit = get_display_limit(db)
+
+    return {
+        "athena_max_download_rows": max_download,
+        "athena_display_rows": display_limit,
+        "description": {
+            "athena_max_download_rows": "Maximum rows that can be downloaded from Athena queries",
+            "athena_display_rows": "Maximum rows to display in UI"
+        }
+    }
+
+
+@router.put("/admin/settings/download-limit")
+async def update_download_limit(
+    limit: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update maximum download row limit (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Validate limit
+    if limit < 1000:
+        raise HTTPException(status_code=400, detail="Minimum limit is 1,000 rows")
+    if limit > 1000000:
+        raise HTTPException(status_code=400, detail="Maximum limit is 1,000,000 rows")
+
+    update_system_setting(db, "athena_max_download_rows", str(limit), current_user.id)
+
+    logger.info(f"Admin {current_user.username} updated download limit to {limit}")
+
+    return {
+        "success": True,
+        "message": f"Download limit updated to {limit:,} rows",
+        "athena_max_download_rows": limit
+    }
+
+
+@router.put("/admin/settings/display-limit")
+async def update_display_limit(
+    limit: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update maximum display row limit (admin only)"""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Validate limit
+    if limit < 10:
+        raise HTTPException(status_code=400, detail="Minimum limit is 10 rows")
+    if limit > 10000:
+        raise HTTPException(status_code=400, detail="Maximum limit is 10,000 rows")
+
+    update_system_setting(db, "athena_display_rows", str(limit), current_user.id)
+
+    logger.info(f"Admin {current_user.username} updated display limit to {limit}")
+
+    return {
+        "success": True,
+        "message": f"Display limit updated to {limit:,} rows",
+        "athena_display_rows": limit
+    }
 
 
 @router.get("/health")
