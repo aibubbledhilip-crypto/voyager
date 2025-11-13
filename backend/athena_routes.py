@@ -428,18 +428,20 @@ def execute_athena_query_with_all_results(
 
             # Get statistics
             stats = query_status['QueryExecution'].get('Statistics', {})
-            data_scanned = stats.get('DataScannedInBytes', 0)
-            data_scanned_mb = data_scanned / (1024 * 1024)
+            data_scanned_bytes = stats.get('DataScannedInBytes', 0)
+            data_scanned_mb = data_scanned_bytes / (1024 * 1024)
 
             return {
                 'success': True,
                 'execution_id': query_execution_id,
+                'query_execution_id': query_execution_id,  # Angular expects this name
                 'status': status,
                 'columns': columns,
                 'rows': all_rows,
                 'row_count': len(all_rows),
                 'execution_time': round(execution_time, 2),
-                'data_scanned': f"{data_scanned_mb:.2f} MB"
+                'data_scanned': f"{data_scanned_mb:.2f} MB",  # For backward compatibility
+                'bytes_scanned': data_scanned_bytes  # For Angular (raw bytes)
             }
         else:
             error_message = query_status['QueryExecution']['Status'].get('StateChangeReason', 'Unknown error')
@@ -535,18 +537,20 @@ def execute_athena_query(
 
             # Get statistics
             stats = query_status['QueryExecution'].get('Statistics', {})
-            data_scanned = stats.get('DataScannedInBytes', 0)
-            data_scanned_mb = data_scanned / (1024 * 1024)
+            data_scanned_bytes = stats.get('DataScannedInBytes', 0)
+            data_scanned_mb = data_scanned_bytes / (1024 * 1024)
 
             return {
                 'success': True,
                 'execution_id': query_execution_id,
+                'query_execution_id': query_execution_id,  # Angular expects this name
                 'status': status,
                 'columns': columns,
                 'rows': rows,
                 'row_count': len(rows),
                 'execution_time': round(execution_time, 2),
-                'data_scanned': f"{data_scanned_mb:.2f} MB"
+                'data_scanned': f"{data_scanned_mb:.2f} MB",  # For backward compatibility (HTML version)
+                'bytes_scanned': data_scanned_bytes  # For Angular (raw bytes)
             }
         else:
             # Query failed or was cancelled
@@ -742,6 +746,48 @@ async def list_tables(
                 tables=tables,
                 database=safe_database
             )
+        else:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Failed to list tables'))
+
+    except ValueError as e:
+        # Sanitization failed
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error listing tables: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Angular-compatible endpoints
+@router.get("/databases/{database}/tables")
+async def list_tables_angular(
+    database: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """List tables in a specific database (Angular-compatible format - returns array)"""
+    if not BOTO3_AVAILABLE:
+        raise HTTPException(
+            status_code=500,
+            detail="boto3 not installed"
+        )
+
+    try:
+        # Sanitize database name to prevent SQL injection
+        safe_database = SQLSecurityValidator.sanitize_identifier(database)
+
+        # Use sanitized identifier in query
+        result = execute_athena_query(f"SHOW TABLES IN {safe_database}", database=safe_database)
+
+        if result['success']:
+            # Extract table names and return in Angular-expected format
+            tables = [
+                {
+                    "name": row[0],
+                    "database": safe_database
+                }
+                for row in result['rows']
+            ]
+
+            return tables
         else:
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to list tables'))
 
