@@ -1,8 +1,8 @@
 # Quick Reference - Athena Testing Commands
 
-## SSL Issue Fixed ✅
+## SSL Issue Fixed ✅ (Updated with Proper Fix)
 
-The SSL certificate verification error has been resolved by setting `AWS_VERIFY_SSL=false` in `.env`.
+The SSL certificate verification error has been resolved with a **proper code fix** that ensures the `.env` configuration is correctly read.
 
 **Error seen:**
 ```
@@ -10,7 +10,16 @@ SSL validation failed for https://athena.us-east-1.amazonaws.com/
 [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate
 ```
 
-**Solution:** `.env` now has `AWS_VERIFY_SSL=false` (common in corporate environments)
+**Root Cause Identified:**
+- The `athena_routes.py` was using `os.getenv()` directly, which doesn't read from `.env` files loaded by pydantic
+- The settings object from `config.py` was not being used for SSL verification
+
+**Solution Applied:**
+1. ✅ Updated `backend/athena_routes.py` to use `settings.aws_verify_ssl` from config object
+2. ✅ Added comprehensive logging for boto3 client creation
+3. ✅ Enhanced error messages with specific troubleshooting steps
+4. ✅ Improved health check endpoint with detailed configuration status
+5. ✅ `.env` has `AWS_VERIFY_SSL=false` (for corporate environments)
 
 ---
 
@@ -40,19 +49,42 @@ Your logs show attempts to use `/auth/login` which doesn't exist in this applica
 
 ## Step-by-Step Testing Commands
 
-### Step 1: Check Health (No Auth)
+### Step 1: Check Health (No Auth) - Now with Enhanced Diagnostics!
 
 ```bash
 curl http://localhost:8000/athena/health
 ```
 
-**Expected output:**
+**Expected output (NEW - with detailed diagnostics):**
 ```json
 {
   "boto3_available": true,
   "configured": true,
   "region": "us-east-1",
-  "database": "default"
+  "database": "default",
+  "ssl_verify": false,
+  "aws_credentials_configured": false,
+  "s3_output_configured": false,
+  "output_location": "s3://your-athena-output-bucket/",
+  "workgroup": "primary",
+  "status": "needs_configuration"
+}
+```
+
+**Health Check Status Explained:**
+- ✅ `boto3_available: true` - AWS SDK is installed
+- ⚠️ `ssl_verify: false` - SSL verification disabled (good for corporate networks)
+- ❌ `aws_credentials_configured: false` - Need to add AWS credentials to `.env`
+- ❌ `s3_output_configured: false` - Need to add valid S3 bucket to `.env`
+- ⚠️ `status: "needs_configuration"` - Configuration incomplete
+
+**When fully configured, you'll see:**
+```json
+{
+  "status": "ready",
+  "aws_credentials_configured": true,
+  "s3_output_configured": true,
+  ...
 }
 ```
 

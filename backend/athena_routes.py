@@ -31,6 +31,7 @@ except ImportError:
 
 from backend.database import get_db, User, SystemSettings, get_system_setting, update_system_setting
 from backend.auth import get_current_active_user
+from backend.config import settings
 
 
 # Security configuration
@@ -257,14 +258,14 @@ class TableInfo(BaseModel):
     database: str
 
 
-# Athena configuration from environment variables
+# Athena configuration from settings
 def get_athena_config() -> Dict[str, str]:
-    """Get Athena configuration from environment variables"""
+    """Get Athena configuration from settings object"""
     return {
-        "database": os.getenv("ATHENA_DATABASE", "default"),
-        "output_location": os.getenv("ATHENA_OUTPUT_LOCATION", "s3://aws-athena-query-results/"),
-        "region": os.getenv("AWS_REGION", "us-east-1"),
-        "workgroup": os.getenv("ATHENA_WORKGROUP", "primary")
+        "database": os.getenv("ATHENA_DATABASE", "default"),  # Allow override via env var
+        "output_location": settings.athena_output_location,
+        "region": settings.aws_region,
+        "workgroup": settings.athena_workgroup
     }
 
 
@@ -278,17 +279,32 @@ def get_athena_client():
 
     config = get_athena_config()
 
-    # Check if SSL verification should be disabled (for corporate proxies)
-    verify_ssl = os.getenv("AWS_VERIFY_SSL", "true").lower() in ("true", "1", "yes")
+    # Use settings object for SSL verification (properly reads from .env)
+    verify_ssl = settings.aws_verify_ssl
 
     if not verify_ssl:
         logger.warning("SSL verification is DISABLED for AWS Athena client. Use only in development/corporate environments.")
+    else:
+        logger.info("SSL verification is ENABLED for AWS Athena client.")
 
-    return boto3.client(
-        'athena',
-        region_name=config['region'],
-        verify=verify_ssl
-    )
+    logger.info(f"Creating Athena client - Region: {config['region']}, SSL Verify: {verify_ssl}")
+
+    try:
+        client = boto3.client(
+            'athena',
+            region_name=config['region'],
+            aws_access_key_id=settings.aws_access_key_id if settings.aws_access_key_id else None,
+            aws_secret_access_key=settings.aws_secret_access_key if settings.aws_secret_access_key else None,
+            verify=verify_ssl
+        )
+        logger.info("Athena client created successfully")
+        return client
+    except Exception as e:
+        logger.error(f"Failed to create Athena client: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create Athena client: {str(e)}"
+        )
 
 
 def get_download_limit(db: Session) -> int:
@@ -668,9 +684,35 @@ async def list_databases(
         else:
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to list databases'))
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error listing databases: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        logger.error(f"Error listing databases: {error_msg}")
+
+        # Provide helpful error messages based on the error type
+        if "SSL" in error_msg or "certificate" in error_msg.lower():
+            detail = (
+                f"SSL Certificate Error: {error_msg}. "
+                "Set AWS_VERIFY_SSL=false in .env file and restart the application. "
+                "This is common in corporate environments with SSL inspection."
+            )
+        elif "credentials" in error_msg.lower() or "access denied" in error_msg.lower():
+            detail = (
+                f"AWS Credentials Error: {error_msg}. "
+                "Check your AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env file. "
+                "Ensure the IAM user has Athena and S3 permissions."
+            )
+        elif "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+            detail = (
+                f"Network Connection Error: {error_msg}. "
+                "Check your network connection to AWS. "
+                "Ensure firewall allows access to athena.{region}.amazonaws.com"
+            )
+        else:
+            detail = f"Athena Error: {error_msg}"
+
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.get("/tables/{database}", response_model=TableInfo)
@@ -899,9 +941,23 @@ async def health_check():
     """Check if Athena service is properly configured"""
     config = get_athena_config()
 
+    # Check AWS credentials (without exposing them)
+    has_credentials = bool(settings.aws_access_key_id and settings.aws_secret_access_key)
+
+    # Check if output location is configured
+    has_output_location = bool(config.get('output_location') and
+                                config.get('output_location') != 's3://aws-athena-query-results/' and
+                                not config.get('output_location').endswith('your-athena-output-bucket/'))
+
     return {
         "boto3_available": BOTO3_AVAILABLE,
         "configured": bool(config.get('database') and config.get('output_location')),
         "region": config.get('region'),
-        "database": config.get('database')
+        "database": config.get('database'),
+        "ssl_verify": settings.aws_verify_ssl,
+        "aws_credentials_configured": has_credentials,
+        "s3_output_configured": has_output_location,
+        "output_location": config.get('output_location', 'Not configured'),
+        "workgroup": config.get('workgroup', 'primary'),
+        "status": "ready" if (BOTO3_AVAILABLE and has_credentials and has_output_location) else "needs_configuration"
     }
