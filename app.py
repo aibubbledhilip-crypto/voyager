@@ -90,6 +90,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Check for token in localStorage using JavaScript
+def get_token_from_local_storage():
+    """Try to get token from browser localStorage"""
+    import streamlit.components.v1 as components
+
+    # JavaScript to read from localStorage and send to Streamlit
+    js_code = """
+    <script>
+    const token = localStorage.getItem('access_token');
+    if (token) {
+        // Send token to Streamlit via query params
+        const url = new URL(window.location);
+        if (!url.searchParams.get('token')) {
+            url.searchParams.set('token', token);
+            window.location.replace(url);
+        }
+    }
+    </script>
+    """
+    components.html(js_code, height=0)
+
 # Initialize session state
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
@@ -103,6 +124,34 @@ if 'uploaded_files_info' not in st.session_state:
     st.session_state.uploaded_files_info = []
 if 'data_overview' not in st.session_state:
     st.session_state.data_overview = None
+
+# Auto-authenticate from localStorage token (via URL parameter)
+def auto_authenticate_from_token():
+    """Check for token in URL and auto-authenticate"""
+    query_params = st.query_params
+    if 'token' in query_params and not st.session_state.authenticated:
+        token = query_params['token']
+        try:
+            # Verify token by getting user info
+            user_response = requests.get(
+                f"{API_BASE_URL}/auth/me",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            if user_response.status_code == 200:
+                st.session_state.access_token = token
+                st.session_state.user_info = user_response.json()
+                st.session_state.authenticated = True
+                # Clear token from URL
+                st.query_params.clear()
+                st.rerun()
+        except Exception as e:
+            pass  # Silent fail, will show login page
+
+# Try auto-authentication if not already authenticated
+if not st.session_state.authenticated:
+    auto_authenticate_from_token()
+    # Also try to get token from localStorage via JavaScript
+    get_token_from_local_storage()
 
 
 def login(username: str, password: str) -> bool:
