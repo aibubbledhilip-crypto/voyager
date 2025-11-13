@@ -269,7 +269,7 @@ def get_athena_config() -> Dict[str, str]:
 
 
 def get_athena_client():
-    """Get boto3 Athena client"""
+    """Get boto3 Athena client with SSL configuration"""
     if not BOTO3_AVAILABLE:
         raise HTTPException(
             status_code=500,
@@ -277,7 +277,18 @@ def get_athena_client():
         )
 
     config = get_athena_config()
-    return boto3.client('athena', region_name=config['region'])
+
+    # Check if SSL verification should be disabled (for corporate proxies)
+    verify_ssl = os.getenv("AWS_VERIFY_SSL", "true").lower() in ("true", "1", "yes")
+
+    if not verify_ssl:
+        logger.warning("SSL verification is DISABLED for AWS Athena client. Use only in development/corporate environments.")
+
+    return boto3.client(
+        'athena',
+        region_name=config['region'],
+        verify=verify_ssl
+    )
 
 
 def get_download_limit(db: Session) -> int:

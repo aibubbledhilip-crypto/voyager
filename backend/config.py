@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     athena_output_location: str = ""
     athena_workgroup: str = "primary"
+    aws_verify_ssl: bool = True  # Set to False for corporate proxies with SSL inspection
 
     class Config:
         env_file = ".env"
