@@ -1,0 +1,10 @@
+<app-navbar *ngIf="showNavbar && authService.isAuthenticated()"></app-navbar>
+
+<div class="app-container" [class.with-navbar]="showNavbar && authService.isAuthenticated()">
+  <router-outlet></router-outlet>
+</div>
+
+<div class="powered-by" *ngIf="!showNavbar || !authService.isAuthenticated()">
+  <span>Powered by</span>
+  <img src="https://www.prodapt.com/wp-content/uploads/Logo-for-website.svg" alt="Prodapt">
+</div>
