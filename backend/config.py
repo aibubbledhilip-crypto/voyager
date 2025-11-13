@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # AWS Configuration (for Athena)
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_region: str = "us-east-1"
+    athena_output_location: str = ""
+    athena_workgroup: str = "primary"
+
     class Config:
         env_file = ".env"
         case_sensitive = False
