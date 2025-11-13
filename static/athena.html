@@ -550,7 +550,7 @@
 
         async function loadDatabases() {
             try {
-                const response = await fetch('/athena/databases', {
+                const response = await fetch('/athena/databases?format=legacy', {
                     headers: getAuthHeaders()
                 });
 

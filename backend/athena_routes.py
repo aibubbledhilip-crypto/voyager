@@ -659,11 +659,17 @@ async def get_config(
     return AthenaConfig(**config)
 
 
-@router.get("/databases", response_model=DatabaseInfo)
+@router.get("/databases")
 async def list_databases(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    format: str = Query("angular", description="Response format: 'angular' or 'legacy'")
 ):
-    """List available databases in Athena"""
+    """
+    List available databases in Athena
+
+    Returns array format by default for Angular compatibility.
+    Use ?format=legacy for the old object format.
+    """
     if not BOTO3_AVAILABLE:
         raise HTTPException(
             status_code=500,
@@ -679,12 +685,19 @@ async def list_databases(
 
         if result['success']:
             # Extract database names from rows
-            databases = [row[0] for row in result['rows']]
+            database_names = [row[0] for row in result['rows']]
 
-            return DatabaseInfo(
-                databases=databases,
-                current_database=config['database']
-            )
+            # Return format based on client needs
+            if format == "legacy":
+                # Legacy format for static HTML version
+                return DatabaseInfo(
+                    databases=database_names,
+                    current_database=config['database']
+                )
+            else:
+                # Angular-compatible format (default)
+                # Return array of objects with 'name' field
+                return [{"name": db} for db in database_names]
         else:
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to list databases'))
 
